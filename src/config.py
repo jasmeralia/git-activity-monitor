@@ -35,6 +35,13 @@ class Settings(BaseSettings):
             return [item.strip() for item in v.split(",") if item.strip()]
         return v
 
+    @field_validator("poll_interval_seconds", mode="after")
+    @classmethod
+    def _validate_poll_interval(cls, v: int) -> int:
+        if v < 30:
+            raise ValueError(f"POLL_INTERVAL_SECONDS must be at least 30, got {v}")
+        return v
+
     @field_validator("repositories", mode="after")
     @classmethod
     def _validate_repo_format(cls, v: list[str]) -> list[str]:

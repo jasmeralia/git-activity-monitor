@@ -32,12 +32,16 @@ def run(
 
         releases = gh_client.get_new_releases(owner, name, repo_state.last_release_id)
 
-        # First run: initialize to current max without notifying
-        if repo_state.last_release_id == 0 and releases:
-            max_id = max(r["id"] for r in releases)
-            repo_state.last_release_id = max_id
+        # First run (last_release_id == -1): initialize cursor without notifying.
+        # get_new_releases(-1) returns all releases since any real ID > -1.
+        if repo_state.last_release_id < 0:
+            repo_state.last_release_id = max((r["id"] for r in releases), default=0)
             state_store.set_repo(repo, repo_state)
-            logger.info("%s: initialized last_release_id=%d (no notification)", repo, max_id)
+            logger.info(
+                "%s: initialized last_release_id=%d (no notification)",
+                repo,
+                repo_state.last_release_id,
+            )
             state_store.save()
             continue
 

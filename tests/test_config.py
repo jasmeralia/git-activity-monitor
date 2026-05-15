@@ -104,6 +104,11 @@ def test_state_file_path_default() -> None:
     assert s.state_file_path == Path("/data/state.json")
 
 
+def test_poll_interval_too_small_raises() -> None:
+    with pytest.raises(ValidationError, match="30"):
+        _make(poll_interval_seconds=5)
+
+
 def test_invalid_ghcr_package_format_raises() -> None:
     with pytest.raises(ValidationError, match="owner/package"):
         _make(ghcr_packages=["notapackage"])

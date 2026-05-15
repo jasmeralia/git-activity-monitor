@@ -51,7 +51,7 @@ def test_first_run_initializes_without_notification(
     mock_gh: MagicMock,
     mock_discord: MagicMock,
 ) -> None:
-    # last_pr_number=0 means first run
+    # last_pr_number=-1 (default) means first run
     mock_gh.get_new_pulls.return_value = [_pr(1), _pr(2), _pr(3)]
     run(sample_settings, state_store, mock_gh, mock_discord)
     mock_discord.send_message.assert_not_called()

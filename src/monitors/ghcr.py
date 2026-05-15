@@ -30,23 +30,21 @@ def run(
 
     for package in settings.ghcr_packages:
         owner, pkg_name = package.split("/")
-        seen = state_store.get_ghcr(package)
 
-        new_versions = gh_client.get_new_package_versions(owner, pkg_name, seen)
-
-        # First run: initialize seen versions without notifying
-        if not seen:
+        # First run: set seen versions without notifying, even if the package has none yet.
+        if not state_store.is_ghcr_initialized(package):
             all_current = gh_client.get_new_package_versions(owner, pkg_name, [])
-            if all_current:
-                state_store.set_ghcr(package, all_current)
-                logger.info(
-                    "%s: initialized with %d version(s) (no notification)",
-                    package,
-                    len(all_current),
-                )
+            state_store.set_ghcr(package, all_current)
+            logger.info(
+                "%s: initialized with %d version(s) (no notification)",
+                package,
+                len(all_current),
+            )
             state_store.save()
             continue
 
+        seen = state_store.get_ghcr(package)
+        new_versions = gh_client.get_new_package_versions(owner, pkg_name, seen)
         if new_versions:
             new_by_package[package] = new_versions
             all_versions_by_package[package] = seen + new_versions

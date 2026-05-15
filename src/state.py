@@ -18,9 +18,9 @@ _STATE_VERSION = 1
 class RepoState:
     stars: int = 0
     watches: int = 0
-    last_pr_number: int = 0
-    last_issue_number: int = 0
-    last_release_id: int = 0
+    last_pr_number: int = -1       # -1 = uninitialized; 0 = initialized, no PRs yet
+    last_issue_number: int = -1    # -1 = uninitialized; 0 = initialized, no issues yet
+    last_release_id: int = -1      # -1 = uninitialized; 0 = initialized, no releases yet
 
 
 class StateStore:
@@ -30,13 +30,16 @@ class StateStore:
         self._path = path
         self._data: dict[str, Any] = {}
 
+    def _reset(self) -> None:
+        self._data = {"version": _STATE_VERSION, "repos": {}, "ghcr": {}}
+
     def load(self) -> None:
         if not self._path.exists():
-            self._data = {"version": _STATE_VERSION, "repos": {}, "ghcr": {}}
+            self._reset()
             return
         try:
             with self._path.open() as fh:
-                self._data = json.load(fh)
+                data = json.load(fh)
         except json.JSONDecodeError as exc:
             corrupt = self._path.with_suffix(".corrupt")
             self._path.rename(corrupt)
@@ -46,7 +49,25 @@ class StateStore:
                 exc,
                 corrupt,
             )
-            self._data = {"version": _STATE_VERSION, "repos": {}, "ghcr": {}}
+            self._reset()
+            return
+
+        if (
+            not isinstance(data, dict)
+            or not isinstance(data.get("repos", {}), dict)
+            or not isinstance(data.get("ghcr", {}), dict)
+        ):
+            corrupt = self._path.with_suffix(".corrupt")
+            self._path.rename(corrupt)
+            logger.warning(
+                "State file %s has invalid schema; starting fresh. Saved to %s",
+                self._path,
+                corrupt,
+            )
+            self._reset()
+            return
+
+        self._data = data
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,9 +86,9 @@ class StateStore:
         return RepoState(
             stars=raw.get("stars", 0),
             watches=raw.get("watches", 0),
-            last_pr_number=raw.get("last_pr_number", 0),
-            last_issue_number=raw.get("last_issue_number", 0),
-            last_release_id=raw.get("last_release_id", 0),
+            last_pr_number=raw.get("last_pr_number", -1),
+            last_issue_number=raw.get("last_issue_number", -1),
+            last_release_id=raw.get("last_release_id", -1),
         )
 
     def set_repo(self, repo: str, state: RepoState) -> None:
@@ -83,6 +104,9 @@ class StateStore:
 
     def get_ghcr(self, package: str) -> list[str]:
         return list(self._data.get("ghcr", {}).get(package, {}).get("seen_versions", []))
+
+    def is_ghcr_initialized(self, package: str) -> bool:
+        return package in self._data.get("ghcr", {})
 
     def set_ghcr(self, package: str, versions: list[str]) -> None:
         if "ghcr" not in self._data:
