@@ -172,13 +172,52 @@ def test_get_new_package_versions_org_fallback(gh: GitHubClient) -> None:
 
 
 @respx.mock
-def test_get_owner_repos_filters_forks_and_archived(gh: GitHubClient) -> None:
-    respx.get(f"{_API}/users/alice/repos").mock(
+def test_get_owner_repos_includes_private(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/repos").mock(
         side_effect=_paginated(
             [
-                {"full_name": "alice/good", "fork": False, "archived": False},
-                {"full_name": "alice/forked", "fork": True, "archived": False},
-                {"full_name": "alice/old", "fork": False, "archived": True},
+                {
+                    "full_name": "alice/public-repo",
+                    "fork": False,
+                    "archived": False,
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/private-repo",
+                    "fork": False,
+                    "archived": False,
+                    "owner": {"login": "alice"},
+                },
+            ]
+        )
+    )
+    repos = gh.get_owner_repos("alice")
+    assert set(repos) == {"alice/public-repo", "alice/private-repo"}
+
+
+@respx.mock
+def test_get_owner_repos_filters_forks_and_archived(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/repos").mock(
+        side_effect=_paginated(
+            [
+                {
+                    "full_name": "alice/good",
+                    "fork": False,
+                    "archived": False,
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/forked",
+                    "fork": True,
+                    "archived": False,
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/old",
+                    "fork": False,
+                    "archived": True,
+                    "owner": {"login": "alice"},
+                },
             ]
         )
     )
@@ -188,7 +227,8 @@ def test_get_owner_repos_filters_forks_and_archived(gh: GitHubClient) -> None:
 
 @respx.mock
 def test_get_owner_repos_org_fallback(gh: GitHubClient) -> None:
-    respx.get(f"{_API}/users/myorg/repos").mock(return_value=httpx.Response(404))
+    # Token belongs to a different user — /user/repos returns nothing matching myorg
+    respx.get(f"{_API}/user/repos").mock(return_value=httpx.Response(200, json=[]))
     respx.get(f"{_API}/orgs/myorg/repos").mock(
         side_effect=_paginated(
             [

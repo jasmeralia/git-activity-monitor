@@ -24,6 +24,14 @@ def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
 
+def _filter_repos(items: list[dict[str, Any]]) -> list[str]:
+    return [
+        item["full_name"]
+        for item in items
+        if not item.get("fork", False) and not item.get("archived", False)
+    ]
+
+
 class GitHubClient:
     _BASE = "https://api.github.com"
 
@@ -120,18 +128,35 @@ class GitHubClient:
         return [v for v in versions if v not in seen]
 
     def get_owner_repos(self, owner: str) -> list[str]:
-        """Return 'owner/repo' strings for all non-fork, non-archived repos under owner."""
+        """Return 'owner/repo' strings for all non-fork, non-archived repos under owner.
+
+        Tries the authenticated /user/repos endpoint first so private repositories
+        are included when the token belongs to owner. Falls back to the org endpoint
+        (for org accounts), then to the public-only /users/{owner}/repos endpoint.
+        """
+        # Authenticated endpoint returns private repos when token belongs to owner.
+        # Filter by owner.login so this is a no-op when the token belongs to someone else.
+        user_items = [
+            r
+            for r in self._paginate("/user/repos", params={"affiliation": "owner"})
+            if r.get("owner", {}).get("login") == owner
+        ]
+        if user_items:
+            return _filter_repos(user_items)
+
+        # Org endpoint: covers org accounts and org-owned private repos.
         try:
-            items = list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
+            return _filter_repos(
+                list(self._paginate(f"/orgs/{owner}/repos", params={"type": "all"}))
+            )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code != 404:
                 raise
-            items = list(self._paginate(f"/orgs/{owner}/repos", params={"type": "public"}))
-        return [
-            item["full_name"]
-            for item in items
-            if not item.get("fork", False) and not item.get("archived", False)
-        ]
+
+        # Public-only fallback for users the token does not own.
+        return _filter_repos(
+            list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
+        )
 
     def _fetch_package_versions(self, owner: str, package_name: str) -> list[str]:
         try:
