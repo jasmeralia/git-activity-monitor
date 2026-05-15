@@ -27,6 +27,28 @@ def _resolve_monitors(enabled_events: list[str]) -> list[MonitorFn]:
     return result
 
 
+def _effective_repositories(settings: Settings, gh_client: GitHubClient) -> list[str]:
+    """Merge owner-discovered repos with explicitly listed repos, preserving order."""
+    seen: set[str] = set()
+    repos: list[str] = []
+    for owner in settings.owners:
+        try:
+            discovered = gh_client.get_owner_repos(owner)
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception("Failed to list repos for owner %s; skipping", owner)
+            discovered = []
+        for repo in discovered:
+            if repo not in seen:
+                seen.add(repo)
+                repos.append(repo)
+        logger.debug("Owner %s: discovered %d repo(s)", owner, len(discovered))
+    for repo in settings.repositories:
+        if repo not in seen:
+            seen.add(repo)
+            repos.append(repo)
+    return repos
+
+
 def _run_cycle(
     settings: Settings,
     state_store: StateStore,
@@ -34,9 +56,14 @@ def _run_cycle(
     discord_client: DiscordClient,
     monitor_fns: list[MonitorFn],
 ) -> None:
+    effective = _effective_repositories(settings, gh_client)
+    if not effective:
+        logger.warning("No repositories to monitor this cycle.")
+        return
+    effective_settings = settings.model_copy(update={"repositories": effective})
     for fn in monitor_fns:
         try:
-            fn(settings, state_store, gh_client, discord_client)
+            fn(effective_settings, state_store, gh_client, discord_client)
         except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Monitor %s failed; continuing with next monitor", fn.__name__)
 

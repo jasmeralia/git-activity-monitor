@@ -20,14 +20,15 @@ class Settings(BaseSettings):
     discord_pinned_message_id: str | None = None
 
     poll_interval_seconds: int = 300
-    repositories: list[str]
+    owners: list[str] = []
+    repositories: list[str] = []
     ghcr_packages: list[str] = []
     enabled_events: list[str] = list(_VALID_EVENTS)
 
     state_file_path: Path = Path("/data/state.json")
     log_level: str = "INFO"
 
-    @field_validator("repositories", "ghcr_packages", "enabled_events", mode="before")
+    @field_validator("owners", "repositories", "ghcr_packages", "enabled_events", mode="before")
     @classmethod
     def _split_comma(cls, v: object) -> object:
         if isinstance(v, str):
@@ -57,6 +58,12 @@ class Settings(BaseSettings):
         if not hasattr(logging, v):
             raise ValueError(f"Invalid log level: {v!r}")
         return v
+
+    @model_validator(mode="after")
+    def _require_owners_or_repositories(self) -> Settings:
+        if not self.owners and not self.repositories:
+            raise ValueError("At least one of OWNERS or REPOSITORIES must be set.")
+        return self
 
     @model_validator(mode="after")
     def _warn_ghcr_no_packages(self) -> Settings:

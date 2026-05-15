@@ -119,6 +119,20 @@ class GitHubClient:
         seen = set(seen_versions)
         return [v for v in versions if v not in seen]
 
+    def get_owner_repos(self, owner: str) -> list[str]:
+        """Return 'owner/repo' strings for all non-fork, non-archived repos under owner."""
+        try:
+            items = list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+            items = list(self._paginate(f"/orgs/{owner}/repos", params={"type": "public"}))
+        return [
+            item["full_name"]
+            for item in items
+            if not item.get("fork", False) and not item.get("archived", False)
+        ]
+
     def _fetch_package_versions(self, owner: str, package_name: str) -> list[str]:
         try:
             data = self._get(f"/users/{owner}/packages/container/{package_name}/versions")

@@ -67,12 +67,32 @@ cp .env.example .env
 | `GITHUB_TOKEN` | yes | — | GitHub PAT with repo read + read:packages |
 | `DISCORD_WEBHOOK_URL` | yes | — | Discord webhook URL |
 | `DISCORD_PINNED_MESSAGE_ID` | no | — | ID of the pinned star/watch summary message (see below) |
-| `REPOSITORIES` | yes | — | Comma-separated `owner/repo` pairs to monitor |
+| `OWNERS` | one of | — | Comma-separated GitHub users/orgs; monitors all their non-fork, non-archived repos |
+| `REPOSITORIES` | one of | — | Comma-separated `owner/repo` pairs to monitor explicitly |
 | `GHCR_PACKAGES` | no | — | Comma-separated `owner/package` pairs for GHCR monitoring |
 | `ENABLED_EVENTS` | no | all | Comma-separated subset of: `stars,watches,prs,issues,releases,ghcr` |
 | `POLL_INTERVAL_SECONDS` | no | `300` | How often to poll (seconds) |
 | `STATE_FILE_PATH` | no | `/data/state.json` | Path to the persistence file |
 | `LOG_LEVEL` | no | `INFO` | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+
+At least one of `OWNERS` or `REPOSITORIES` must be set. Both can be used together — repos are deduplicated.
+
+---
+
+## Owner-Based Monitoring
+
+Set `OWNERS` to a comma-separated list of GitHub usernames or organization names. Each polling cycle the service calls the GitHub API to discover all non-fork, non-archived repositories under each owner and monitors them automatically. No manual `REPOSITORIES` list is needed.
+
+```ini
+# Monitor everything under a user or org
+OWNERS=jasmeralia
+
+# Mix owners and explicit repos (duplicates are ignored)
+OWNERS=jasmeralia
+REPOSITORIES=some-org/a-specific-repo
+```
+
+If a new repository is created under a monitored owner, it is picked up on the next polling cycle without a restart.
 
 ---
 

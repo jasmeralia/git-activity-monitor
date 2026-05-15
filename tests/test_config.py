@@ -61,6 +61,33 @@ def test_missing_github_token_raises() -> None:
         )
 
 
+def test_neither_owners_nor_repositories_raises() -> None:
+    with pytest.raises(ValidationError, match="OWNERS or REPOSITORIES"):
+        Settings(
+            github_token="tok",
+            discord_webhook_url="https://discord.com/api/webhooks/1/t",
+            owners=[],
+            repositories=[],
+            _env_file=None,  # type: ignore[call-arg]
+        )
+
+
+def test_owners_alone_is_valid() -> None:
+    s = Settings(
+        github_token="tok",
+        discord_webhook_url="https://discord.com/api/webhooks/1/t",
+        owners=["jasmeralia"],
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    assert s.owners == ["jasmeralia"]
+    assert s.repositories == []
+
+
+def test_comma_split_owners() -> None:
+    s = _make(owners="alice, bob,carol")
+    assert s.owners == ["alice", "bob", "carol"]
+
+
 def test_invalid_log_level_raises() -> None:
     with pytest.raises(ValidationError, match="Invalid log level"):
         _make(log_level="VERBOSE")

@@ -49,6 +49,19 @@ Source files live directly in `src/` (not `src/github_activity_monitor/`). The `
 
 State is written atomically (write to `.tmp` sibling, then `os.replace()`).
 
+## Owner-Based Repository Discovery
+
+`Settings` accepts an `OWNERS` list (comma-separated GitHub usernames or org names) in addition to the explicit `REPOSITORIES` list. At least one must be set.
+
+At the start of every polling cycle, `_effective_repositories()` in `main.py`:
+
+1. For each owner, calls `GitHubClient.get_owner_repos(owner)`, which tries `/users/{owner}/repos?type=owner` and falls back to `/orgs/{owner}/repos?type=public` on a 404 (GitHub returns 404 for organization accounts on the `/users/` endpoint).
+2. Filters out any repo where `fork=True` or `archived=True`.
+3. Deduplicates using insertion-order-preserving logic (owner repos first, then explicit repos).
+4. Passes the resolved list to monitors via `settings.model_copy(update={"repositories": effective})` so the rest of the codebase needs no changes.
+
+If a repo discovery call fails, that owner is skipped with an exception log and the cycle continues with whatever repos are available. New repositories under a monitored owner are picked up on the next cycle without a restart.
+
 ## Key Design Decisions
 
 ### State advanced only after Discord success

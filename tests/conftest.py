@@ -19,7 +19,7 @@ def sample_settings(tmp_path: Path) -> Settings:
         repositories=["owner/repo"],
         state_file_path=tmp_path / "state.json",
         _env_file=None,  # type: ignore[call-arg]
-    )
+    )  # owners is empty — explicit repositories list is sufficient
 
 
 @pytest.fixture
