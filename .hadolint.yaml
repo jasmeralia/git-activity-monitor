@@ -1,0 +1,4 @@
+failure-threshold: error
+trustedRegistries:
+  - docker.io
+  - ghcr.io

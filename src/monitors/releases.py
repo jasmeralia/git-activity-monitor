@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Any
+
+from github_activity_monitor.monitors.utils import split_message_chunks
+
+if TYPE_CHECKING:
+    from github_activity_monitor.config import Settings
+    from github_activity_monitor.discord_client import DiscordClient
+    from github_activity_monitor.github_client import GitHubClient
+    from github_activity_monitor.state import StateStore
+
+logger = logging.getLogger(__name__)
+
+_HEADER = "**New Releases**"
+_BODY_MAX = 200
+
+
+def run(
+    settings: Settings,
+    state_store: StateStore,
+    gh_client: GitHubClient,
+    discord_client: DiscordClient,
+) -> None:
+    new_by_repo: dict[str, list[dict[str, Any]]] = {}
+    max_id_by_repo: dict[str, int] = {}
+
+    for repo in settings.repositories:
+        owner, name = repo.split("/")
+        repo_state = state_store.get_repo(repo)
+
+        releases = gh_client.get_new_releases(owner, name, repo_state.last_release_id)
+
+        # First run: initialize to current max without notifying
+        if repo_state.last_release_id == 0 and releases:
+            max_id = max(r["id"] for r in releases)
+            repo_state.last_release_id = max_id
+            state_store.set_repo(repo, repo_state)
+            logger.info("%s: initialized last_release_id=%d (no notification)", repo, max_id)
+            state_store.save()
+            continue
+
+        if releases:
+            new_by_repo[repo] = releases
+            max_id_by_repo[repo] = max(r["id"] for r in releases)
+
+    if not new_by_repo:
+        return
+
+    sections = []
+    for repo, releases in new_by_repo.items():
+        lines = [f"**{repo}**"]
+        for release in releases:
+            body = (release.get("body") or "").strip()
+            if len(body) > _BODY_MAX:
+                body = body[:_BODY_MAX] + "…"
+            tag = release["tag_name"]
+            url = release["html_url"]
+            title = release.get("name") or tag
+            line = f"**{title}** ({tag}) — [Release notes]({url})"
+            if body:
+                line += f"\n> {body}"
+            lines.append(line)
+        sections.append("\n".join(lines))
+
+    for chunk in split_message_chunks(_HEADER, sections):
+        discord_client.send_message(chunk)
+
+    for repo, max_id in max_id_by_repo.items():
+        rs = state_store.get_repo(repo)
+        rs.last_release_id = max_id
+        state_store.set_repo(repo, rs)
+
+    state_store.save()
+    total = sum(len(v) for v in new_by_repo.values())
+    logger.info("Notified %d new release(s) across %d repo(s)", total, len(new_by_repo))

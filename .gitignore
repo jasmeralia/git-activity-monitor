@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+coverage.xml
+.coverage
+dist/
+build/
+*.egg-info/
+.env
+data/
+# Dev symlink created by 'make setup' so mypy/pylint can find the package
+github_activity_monitor
