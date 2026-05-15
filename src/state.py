@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _STATE_VERSION = 1
 
@@ -31,8 +34,19 @@ class StateStore:
         if not self._path.exists():
             self._data = {"version": _STATE_VERSION, "repos": {}, "ghcr": {}}
             return
-        with self._path.open() as fh:
-            self._data = json.load(fh)
+        try:
+            with self._path.open() as fh:
+                self._data = json.load(fh)
+        except json.JSONDecodeError as exc:
+            corrupt = self._path.with_suffix(".corrupt")
+            self._path.rename(corrupt)
+            logger.warning(
+                "State file %s is corrupt (%s); starting fresh. Corrupt file saved to %s",
+                self._path,
+                exc,
+                corrupt,
+            )
+            self._data = {"version": _STATE_VERSION, "repos": {}, "ghcr": {}}
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

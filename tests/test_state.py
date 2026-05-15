@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-
-import pytest
 
 from github_activity_monitor.state import RepoState, StateStore
 
@@ -40,12 +37,14 @@ def test_atomic_write_no_tmp_left(tmp_path: Path) -> None:
     assert tmp_files == []
 
 
-def test_corrupt_json_raises(tmp_path: Path) -> None:
+def test_corrupt_json_recovers(tmp_path: Path) -> None:
     path = tmp_path / "state.json"
     path.write_text("{not valid json", encoding="utf-8")
     store = StateStore(path)
-    with pytest.raises(json.JSONDecodeError):
-        store.load()
+    store.load()  # should not raise
+    assert store.get_repo("owner/repo") == RepoState()
+    assert (tmp_path / "state.corrupt").exists()
+    assert not path.exists()
 
 
 def test_ghcr_round_trip(tmp_path: Path) -> None:

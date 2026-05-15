@@ -10,16 +10,16 @@ if TYPE_CHECKING:
     from github_activity_monitor.config import Settings
     from github_activity_monitor.discord_client import DiscordClient
     from github_activity_monitor.github_client import GitHubClient
-    from github_activity_monitor.state import StateStore
+    from github_activity_monitor.state import RepoState, StateStore
 
 logger = logging.getLogger(__name__)
 
 
-def _build_summary(settings: Settings, state_store: StateStore) -> str:
+def _build_summary(settings: Settings, staged: dict[str, RepoState]) -> str:
     now_ts = int(time.time())
     lines = [f"**GitHub Repository Stats** — last updated <t:{now_ts}:R>", ""]
     for repo in settings.repositories:
-        rs = state_store.get_repo(repo)
+        rs = staged[repo]
         lines.append(f"**{repo}**  Stars: {rs.stars}  Watchers: {rs.watches}")
     return "\n".join(lines)
 
@@ -60,6 +60,7 @@ def run(
 ) -> None:
     """Check star/watch counts and update the pinned Discord summary if any changed."""
     changed = False
+    staged: dict[str, RepoState] = {}
     for repo in settings.repositories:
         owner, name = repo.split("/")
         stats = gh_client.get_repo_stats(owner, name)
@@ -80,15 +81,15 @@ def run(
 
         repo_state.stars = new_stars
         repo_state.watches = new_watches
+        staged[repo] = repo_state
 
     if not changed:
         return
 
-    summary = _build_summary(settings, state_store)
+    summary = _build_summary(settings, staged)
     pinned_id = settings.discord_pinned_message_id or state_store.pinned_message_id
     _update_pinned(discord_client, state_store, summary, pinned_id)
 
-    for repo in settings.repositories:
-        state_store.set_repo(repo, state_store.get_repo(repo))
-
+    for repo, repo_state in staged.items():
+        state_store.set_repo(repo, repo_state)
     state_store.save()

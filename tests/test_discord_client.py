@@ -56,3 +56,26 @@ def test_webhook_url_parsing() -> None:
     dc = DiscordClient("https://discord.com/api/webhooks/99999/my-secret-token")
     assert dc._webhook_id == "99999"
     assert dc._webhook_token == "my-secret-token"
+
+
+@respx.mock
+def test_send_sets_allowed_mentions(dc: DiscordClient) -> None:
+    route = respx.post(_WEBHOOK).mock(return_value=httpx.Response(200, json={"id": "1"}))
+    dc.send_message("hello @everyone")
+    body = route.calls.last.request.read()
+    import json as _json
+    payload = _json.loads(body)
+    assert payload.get("allowed_mentions") == {"parse": []}
+
+
+@respx.mock
+def test_429_inline_retry(dc: DiscordClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("github_activity_monitor.discord_client.time.sleep", lambda _: None)
+    respx.post(_WEBHOOK).mock(
+        side_effect=[
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
+            httpx.Response(200, json={"id": "7"}),
+        ]
+    )
+    msg = dc.send_message("rate limited")
+    assert msg["id"] == "7"

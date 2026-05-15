@@ -43,6 +43,14 @@ class Settings(BaseSettings):
                 raise ValueError(f"Repository must be 'owner/repo', got: {repo!r}")
         return v
 
+    @field_validator("ghcr_packages", mode="after")
+    @classmethod
+    def _validate_ghcr_package_format(cls, v: list[str]) -> list[str]:
+        for pkg in v:
+            if pkg.count("/") != 1:
+                raise ValueError(f"GHCR package must be 'owner/package', got: {pkg!r}")
+        return v
+
     @field_validator("enabled_events", mode="after")
     @classmethod
     def _validate_event_names(cls, v: list[str]) -> list[str]:

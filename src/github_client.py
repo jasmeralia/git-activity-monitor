@@ -20,7 +20,11 @@ _RATE_LIMIT_WARN_THRESHOLD = 50
 
 def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.status_code in {429, 500, 502, 503, 504}
+        code = exc.response.status_code
+        # GitHub uses 403 for secondary rate limits; distinguish by Retry-After header
+        return code in {429, 500, 502, 503, 504} or (
+            code == 403 and "Retry-After" in exc.response.headers
+        )
     return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
 
@@ -160,12 +164,16 @@ class GitHubClient:
 
     def _fetch_package_versions(self, owner: str, package_name: str) -> list[str]:
         try:
-            data = self._get(f"/users/{owner}/packages/container/{package_name}/versions")
+            versions = list(
+                self._paginate(f"/users/{owner}/packages/container/{package_name}/versions")
+            )
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code != 404:
                 raise
-            data = self._get(f"/orgs/{owner}/packages/container/{package_name}/versions")
+            versions = list(
+                self._paginate(f"/orgs/{owner}/packages/container/{package_name}/versions")
+            )
         tags: list[str] = []
-        for version in data:
+        for version in versions:
             tags.extend(version.get("metadata", {}).get("container", {}).get("tags", []))
         return tags

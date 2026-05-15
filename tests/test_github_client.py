@@ -144,12 +144,11 @@ def test_get_new_releases_skips_drafts(gh: GitHubClient) -> None:
 @respx.mock
 def test_get_new_package_versions_user_endpoint(gh: GitHubClient) -> None:
     respx.get(f"{_API}/users/owner/packages/container/pkg/versions").mock(
-        return_value=httpx.Response(
-            200,
-            json=[
+        side_effect=_paginated(
+            [
                 {"metadata": {"container": {"tags": ["1.0.0", "latest"]}}},
                 {"metadata": {"container": {"tags": ["0.9.0"]}}},
-            ],
+            ]
         )
     )
     new = gh.get_new_package_versions("owner", "pkg", seen_versions=["0.9.0"])
@@ -162,10 +161,7 @@ def test_get_new_package_versions_org_fallback(gh: GitHubClient) -> None:
         return_value=httpx.Response(404, json={"message": "Not Found"})
     )
     respx.get(f"{_API}/orgs/org/packages/container/pkg/versions").mock(
-        return_value=httpx.Response(
-            200,
-            json=[{"metadata": {"container": {"tags": ["2.0.0"]}}}],
-        )
+        side_effect=_paginated([{"metadata": {"container": {"tags": ["2.0.0"]}}}])
     )
     new = gh.get_new_package_versions("org", "pkg", seen_versions=[])
     assert new == ["2.0.0"]

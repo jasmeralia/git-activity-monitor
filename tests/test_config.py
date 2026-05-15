@@ -104,6 +104,11 @@ def test_state_file_path_default() -> None:
     assert s.state_file_path == Path("/data/state.json")
 
 
+def test_invalid_ghcr_package_format_raises() -> None:
+    with pytest.raises(ValidationError, match="owner/package"):
+        _make(ghcr_packages=["notapackage"])
+
+
 def test_pinned_message_id_optional() -> None:
     s = _make(discord_pinned_message_id="12345")
     assert s.discord_pinned_message_id == "12345"

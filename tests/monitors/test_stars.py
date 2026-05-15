@@ -34,6 +34,24 @@ def test_star_change_calls_send_when_no_pinned_id(
     run(sample_settings, state_store, mock_gh, mock_discord)
     mock_discord.send_message.assert_called_once()
     assert state_store.pinned_message_id == "12345"
+    # New counts must be persisted so the next cycle doesn't re-trigger
+    rs = state_store.get_repo("owner/repo")
+    assert rs.stars == 10
+    assert rs.watches == 1
+
+
+def test_summary_contains_new_counts(
+    sample_settings: Settings,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    mock_gh.get_repo_stats.return_value = {"stars": 42, "watches": 7}
+    mock_discord.send_message.return_value = {"id": "1"}
+    run(sample_settings, state_store, mock_gh, mock_discord)
+    sent = mock_discord.send_message.call_args[0][0]
+    assert "42" in sent
+    assert "7" in sent
 
 
 def test_star_change_calls_edit_with_pinned_id(

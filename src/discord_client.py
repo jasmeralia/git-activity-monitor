@@ -16,6 +16,8 @@ from tenacity import (
 
 logger = logging.getLogger(__name__)
 
+_NO_MENTIONS: dict[str, Any] = {"parse": []}
+
 
 def _is_retryable_discord(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
@@ -46,7 +48,10 @@ class DiscordClient:
     def send_message(self, content: str) -> dict[str, Any]:
         """Send a message via webhook; returns the created message dict (includes 'id')."""
         resp = self._request(
-            "POST", self._webhook_url, params={"wait": "true"}, json={"content": content}
+            "POST",
+            self._webhook_url,
+            params={"wait": "true"},
+            json={"content": content, "allowed_mentions": _NO_MENTIONS},
         )
         result: dict[str, Any] = resp.json()
         return result
@@ -57,7 +62,9 @@ class DiscordClient:
             f"https://discord.com/api/webhooks"
             f"/{self._webhook_id}/{self._webhook_token}/messages/{message_id}"
         )
-        resp = self._request("PATCH", url, json={"content": content})
+        resp = self._request(
+            "PATCH", url, json={"content": content, "allowed_mentions": _NO_MENTIONS}
+        )
         result: dict[str, Any] = resp.json()
         return result
 
@@ -74,6 +81,6 @@ class DiscordClient:
             retry_after = float(resp.headers.get("X-RateLimit-Reset-After", "1.0"))
             logger.warning("Discord rate limited; sleeping %.1fs", retry_after)
             time.sleep(retry_after)
-            resp.raise_for_status()
+            resp = self._client.request(method, url, **kwargs)
         resp.raise_for_status()
         return resp
