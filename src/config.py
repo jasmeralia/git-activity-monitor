@@ -11,7 +11,7 @@ _VALID_EVENTS: frozenset[str] = frozenset({"stars", "watches", "prs", "issues", 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file="/app/.env",
         env_file_encoding="utf-8",
     )
 

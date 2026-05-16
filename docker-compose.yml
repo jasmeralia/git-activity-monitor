@@ -2,10 +2,9 @@ services:
   git-activity-monitor:
     image: ghcr.io/jasmeralia/git-activity-monitor:latest
     restart: unless-stopped
-    env_file:
-      - .env
     volumes:
-      - ./data:/data
+      - /mnt/myzmirror/git-activity-monitor/.env:/app/.env:ro
+      - /mnt/myzmirror/git-activity-monitor/data:/data
     logging:
       driver: json-file
       options:
