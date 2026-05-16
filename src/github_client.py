@@ -162,6 +162,34 @@ class GitHubClient:
             list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
         )
 
+    def get_owner_packages(self, owner: str) -> list[str]:
+        """Return 'owner/package' strings for all container packages under owner.
+
+        Uses the same three-tier strategy as get_owner_repos: authenticated
+        /user/packages first (includes private), then org endpoint, then public fallback.
+        """
+        user_items = [
+            p
+            for p in self._paginate("/user/packages", params={"package_type": "container"})
+            if p.get("owner", {}).get("login") == owner
+        ]
+        if user_items:
+            return [f"{owner}/{p['name']}" for p in user_items]
+
+        try:
+            org_items = list(
+                self._paginate(f"/orgs/{owner}/packages", params={"package_type": "container"})
+            )
+            return [f"{owner}/{p['name']}" for p in org_items]
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+
+        pub_items = list(
+            self._paginate(f"/users/{owner}/packages", params={"package_type": "container"})
+        )
+        return [f"{owner}/{p['name']}" for p in pub_items]
+
     def _fetch_package_versions(self, owner: str, package_name: str) -> list[str]:
         try:
             versions = list(

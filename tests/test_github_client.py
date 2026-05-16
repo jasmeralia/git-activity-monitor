@@ -237,6 +237,41 @@ def test_get_owner_repos_org_fallback(gh: GitHubClient) -> None:
 
 
 @respx.mock
+def test_get_owner_packages_user_endpoint(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/packages").mock(
+        side_effect=_paginated(
+            [
+                {"name": "my-app", "owner": {"login": "alice"}},
+                {"name": "other-app", "owner": {"login": "alice"}},
+            ]
+        )
+    )
+    pkgs = gh.get_owner_packages("alice")
+    assert set(pkgs) == {"alice/my-app", "alice/other-app"}
+
+
+@respx.mock
+def test_get_owner_packages_org_fallback(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/packages").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{_API}/orgs/myorg/packages").mock(side_effect=_paginated([{"name": "org-app"}]))
+    pkgs = gh.get_owner_packages("myorg")
+    assert pkgs == ["myorg/org-app"]
+
+
+@respx.mock
+def test_get_owner_packages_public_fallback(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/packages").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{_API}/orgs/alice/packages").mock(
+        return_value=httpx.Response(404, json={"message": "Not Found"})
+    )
+    respx.get(f"{_API}/users/alice/packages").mock(
+        side_effect=_paginated([{"name": "pub-app"}])
+    )
+    pkgs = gh.get_owner_packages("alice")
+    assert pkgs == ["alice/pub-app"]
+
+
+@respx.mock
 def test_get_repo_stats_retries_on_500(gh: GitHubClient, monkeypatch: pytest.MonkeyPatch) -> None:
     # Patch tenacity sleep so this test doesn't wait 2 seconds for the retry backoff
     monkeypatch.setattr("tenacity.nap.time.sleep", lambda _: None)

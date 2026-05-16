@@ -82,9 +82,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _warn_ghcr_no_packages(self) -> Settings:
-        if "ghcr" in self.enabled_events and not self.ghcr_packages:
+        if "ghcr" in self.enabled_events and not self.ghcr_packages and not self.owners:
             logging.getLogger(__name__).warning(
-                "'ghcr' is in ENABLED_EVENTS but GHCR_PACKAGES is empty; "
+                "'ghcr' is in ENABLED_EVENTS but GHCR_PACKAGES is empty and OWNERS is not set; "
                 "ghcr monitor will be a no-op."
             )
         return self

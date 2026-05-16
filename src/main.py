@@ -51,6 +51,28 @@ def _effective_repositories(settings: Settings, gh_client: GitHubClient) -> list
     return repos
 
 
+def _effective_ghcr_packages(settings: Settings, gh_client: GitHubClient) -> list[str]:
+    """Merge owner-discovered container packages with explicitly listed packages."""
+    seen: set[str] = set()
+    packages: list[str] = []
+    for owner in settings.owners:
+        try:
+            discovered = gh_client.get_owner_packages(owner)
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception("Failed to list packages for owner %s; skipping", owner)
+            discovered = []
+        for pkg in discovered:
+            if pkg not in seen:
+                seen.add(pkg)
+                packages.append(pkg)
+        logger.debug("Owner %s: discovered %d package(s)", owner, len(discovered))
+    for pkg in settings.ghcr_packages:
+        if pkg not in seen:
+            seen.add(pkg)
+            packages.append(pkg)
+    return packages
+
+
 def _run_cycle(
     settings: Settings,
     state_store: StateStore,
@@ -62,7 +84,14 @@ def _run_cycle(
     if not effective:
         logger.warning("No repositories to monitor this cycle.")
         return
-    effective_settings = settings.model_copy(update={"repositories": effective})
+    effective_packages = (
+        _effective_ghcr_packages(settings, gh_client)
+        if "ghcr" in settings.enabled_events
+        else settings.ghcr_packages
+    )
+    effective_settings = settings.model_copy(
+        update={"repositories": effective, "ghcr_packages": effective_packages}
+    )
     for fn in monitor_fns:
         try:
             fn(effective_settings, state_store, gh_client, discord_client)

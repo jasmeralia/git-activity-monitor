@@ -93,10 +93,16 @@ def test_invalid_log_level_raises() -> None:
         _make(log_level="VERBOSE")
 
 
-def test_ghcr_enabled_no_packages_warns(caplog: pytest.LogCaptureFixture) -> None:
+def test_ghcr_enabled_no_packages_no_owners_warns(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING):
         _make(enabled_events="stars,ghcr", ghcr_packages=[])
     assert "ghcr" in caplog.text.lower()
+
+
+def test_ghcr_enabled_no_packages_with_owners_no_warn(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        _make(enabled_events="stars,ghcr", ghcr_packages=[], owners=["alice"])
+    assert "no-op" not in caplog.text
 
 
 def test_state_file_path_default() -> None:
