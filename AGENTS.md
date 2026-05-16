@@ -12,3 +12,11 @@ This runs:
 3. `pytest` with coverage — must pass with ≥ 80% coverage
 
 Do not commit or submit changes that fail any of these checks.
+
+## After Merging a Pull Request
+
+After merging any PR, always monitor the resulting GitHub Actions runs to completion:
+
+    gh run watch <run-id>
+
+Check both the CI run (triggered by the merge commit) and the Release run (triggered by CI success). Do not report the merge as complete until all workflows have passed. If a workflow fails, investigate the logs with `gh run view <run-id> --log-failed` and fix the issue.
