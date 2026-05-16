@@ -71,7 +71,7 @@ cp .env.example .env
 | `REPOSITORIES` | one of | — | Comma-separated `owner/repo` pairs to monitor explicitly |
 | `GHCR_PACKAGES` | no | — | Comma-separated `owner/package` pairs for GHCR monitoring |
 | `ENABLED_EVENTS` | no | all | Comma-separated subset of: `stars,watches,prs,issues,releases,ghcr` |
-| `POLL_INTERVAL_SECONDS` | no | `300` | How often to poll (seconds) |
+| `POLL_INTERVAL_SECONDS` | no | `300` | How often to poll (seconds; minimum 30) |
 | `STATE_FILE_PATH` | no | `/data/state.json` | Path to the persistence file |
 | `LOG_LEVEL` | no | `INFO` | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
@@ -157,7 +157,7 @@ Example pinned message:
 
 ### Pull Requests
 
-Detects newly opened PRs. All new PRs across all configured repositories are batched into a single Discord message per polling cycle.
+Detects PRs created since the last poll (open or closed/merged — anything opened in the interval is reported). All new PRs across all configured repositories are batched into a single Discord message per polling cycle.
 
 ```
 **New Pull Requests**
@@ -169,7 +169,7 @@ Detects newly opened PRs. All new PRs across all configured repositories are bat
 
 ### Issues
 
-Detects newly created issues (pull requests are excluded).
+Detects issues created since the last poll (open or closed — anything created in the interval is reported). Pull requests are excluded.
 
 ### Releases
 
@@ -194,6 +194,8 @@ The state file (default `/data/state.json`) persists:
 **To reset all state:** delete the file and restart. The service will re-initialize from current GitHub state without sending notifications for existing activity.
 
 **To reset one repository:** edit the JSON file and remove or zero out that repository's entry.
+
+If the state file is corrupt or has an invalid schema on startup, it is renamed to `state.json.corrupt` and the service starts fresh (no notifications for existing activity).
 
 ---
 

@@ -47,7 +47,7 @@ Source files live directly in `src/` (not `src/github_activity_monitor/`). The `
 }
 ```
 
-State is written atomically (write to `.tmp` sibling, then `os.replace()`).
+State is written atomically (write to `.tmp` sibling, then `os.replace()`). On load, if the file contains invalid JSON or an unexpected schema (non-dict top level, wrong key types), it is renamed to `state.json.corrupt` and the service starts fresh.
 
 ## Owner-Based Repository Discovery
 
@@ -55,7 +55,10 @@ State is written atomically (write to `.tmp` sibling, then `os.replace()`).
 
 At the start of every polling cycle, `_effective_repositories()` in `main.py`:
 
-1. For each owner, calls `GitHubClient.get_owner_repos(owner)`, which tries `/users/{owner}/repos?type=owner` and falls back to `/orgs/{owner}/repos?type=public` on a 404 (GitHub returns 404 for organization accounts on the `/users/` endpoint).
+1. For each owner, calls `GitHubClient.get_owner_repos(owner)`, which uses a three-tier strategy:
+   - Tries `/user/repos?affiliation=owner` (authenticated; returns private repos), filtered to rows where `owner.login` matches the requested owner.
+   - Falls back to `/orgs/{owner}/repos?type=all` on 404 (org accounts sometimes 404 on the `/user/` endpoint).
+   - Falls back to `/users/{owner}/repos?type=owner` as a last resort (public only).
 2. Filters out any repo where `fork=True` or `archived=True`.
 3. Deduplicates using insertion-order-preserving logic (owner repos first, then explicit repos).
 4. Passes the resolved list to monitors via `settings.model_copy(update={"repositories": effective})` so the rest of the codebase needs no changes.
@@ -70,7 +73,7 @@ If Discord is down, changes accumulate and are batched on recovery. Missed notif
 
 ### First-run initialization
 
-On the first run (all `last_*` values = 0), each monitor initializes state to the current maximum without sending a Discord notification. This prevents a flood on first deploy. Operators who want historical notifications should manually edit the state file.
+Numeric cursors (`last_pr_number`, `last_issue_number`, `last_release_id`) default to `-1` in a freshly created `RepoState`. Any value `< 0` triggers the initialization branch: the monitor fetches current items, sets the cursor to the current maximum (or `0` if there are none), saves state, and returns without notifying Discord. This prevents a notification flood on first deploy. Operators who want historical notifications should manually reset the state file.
 
 ### GHCR versions as a set
 
@@ -94,11 +97,15 @@ Plain text with Discord markdown (no embeds — embeds require a bot token, not 
 
 ## Retry Strategy
 
-Both `GitHubClient` and `DiscordClient` use `tenacity` with exponential backoff (2s → 60s max, 5 attempts). GitHub 429 is included in the retry predicate. Discord 429 is handled inline (reads `X-RateLimit-Reset-After` header and sleeps) to respect the variable retry-after duration.
+`GitHubClient` uses `tenacity` with exponential backoff (2s → 60s max, 5 attempts) for 429, 5xx, and network errors. GitHub secondary rate limits (403 with `Retry-After`) are also retried.
+
+`DiscordClient` does not use `tenacity`. Discord 429 responses include a `X-RateLimit-Reset-After` header with a variable delay, so 429s are handled with an inline sleep-and-retry loop (up to 3 retries). After 3 retries the exception is raised. All other errors propagate immediately.
 
 ## Polling Loop
 
 The sleep between cycles is interruptible (1-second increments checking a `shutdown` flag). SIGTERM and SIGINT set the flag; the loop exits cleanly after the current cycle completes.
+
+Each monitor runs inside a try/except. Permanent failures (HTTP 401/403/404 from the GitHub or Discord API) are logged at `CRITICAL` level with a message identifying the misconfiguration. All other exceptions are logged at `ERROR` and the loop continues with the next monitor. The container does not stop on any monitor failure.
 
 ## Docker
 
