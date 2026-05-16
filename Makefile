@@ -39,7 +39,7 @@ test:        ## Run pytest with coverage (minimum 80%)
 
 shellcheck:  ## Lint shell scripts in scripts/
 	@if command -v shellcheck >/dev/null 2>&1; then \
-	  find $(SCRIPTS_DIR) -name '*.sh' -print0 | xargs -0 shellcheck; \
+	  find $(SCRIPTS_DIR) -name '*.sh' -print0 | xargs -r -0 shellcheck; \
 	else \
 	  echo "shellcheck not installed; skipping (runs in CI)"; \
 	fi
