@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 _VALID_EVENTS: frozenset[str] = frozenset({"stars", "watches", "prs", "issues", "releases", "ghcr"})
 
@@ -89,3 +92,38 @@ class Settings(BaseSettings):
                 "ghcr monitor will be a no-op."
             )
         return self
+
+    @classmethod
+    def settings_customise_sources(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        for src in (env_settings, dotenv_settings):
+            _patch_comma_split(src)
+        return (init_settings, env_settings, dotenv_settings, file_secret_settings)
+
+
+def _patch_comma_split(src: PydanticBaseSettingsSource) -> None:
+    # pydantic-settings v2 calls json.loads() on list fields before validators run,
+    # so OWNERS=jasmeralia fails. Patch the source to return the raw string on JSON
+    # failure so our _split_comma validator can handle comma-separated values.
+    _orig = src.prepare_field_value
+
+    def _prepare(
+        field_name: str,
+        field: FieldInfo,
+        value: Any,
+        value_is_complex: bool,
+    ) -> Any:
+        if value is not None and value_is_complex and isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                return value
+        return _orig(field_name, field, value, value_is_complex)
+
+    src.prepare_field_value = _prepare  # type: ignore[method-assign]
