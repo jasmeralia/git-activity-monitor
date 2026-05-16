@@ -17,8 +17,6 @@ setup:       ## Create .venv and install all deps including dev
 	python3 -m venv $(VENV)
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
-	@# Symlink so mypy/pylint can resolve 'git_activity_monitor' to src/
-	@test -e git_activity_monitor || ln -s src git_activity_monitor
 
 lint-fix:    ## Auto-fix formatting and import order (ruff format + ruff check --fix)
 	$(RUFF) format src/ tests/

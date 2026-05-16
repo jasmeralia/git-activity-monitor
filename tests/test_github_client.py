@@ -264,9 +264,7 @@ def test_get_owner_packages_public_fallback(gh: GitHubClient) -> None:
     respx.get(f"{_API}/orgs/alice/packages").mock(
         return_value=httpx.Response(404, json={"message": "Not Found"})
     )
-    respx.get(f"{_API}/users/alice/packages").mock(
-        side_effect=_paginated([{"name": "pub-app"}])
-    )
+    respx.get(f"{_API}/users/alice/packages").mock(side_effect=_paginated([{"name": "pub-app"}]))
     pkgs = gh.get_owner_packages("alice")
     assert pkgs == ["alice/pub-app"]
 

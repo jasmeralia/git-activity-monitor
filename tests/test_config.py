@@ -88,6 +88,26 @@ def test_comma_split_owners() -> None:
     assert s.owners == ["alice", "bob", "carol"]
 
 
+def test_dotenv_comma_split_list_values(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "GITHUB_TOKEN=tok",
+                "DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1/t",
+                "OWNERS=alice,bob",
+                "ENABLED_EVENTS=stars,watches,prs",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    s = Settings(_env_file=env_file)  # type: ignore[call-arg]
+
+    assert s.owners == ["alice", "bob"]
+    assert s.enabled_events == ["stars", "watches", "prs"]
+
+
 def test_invalid_log_level_raises() -> None:
     with pytest.raises(ValidationError, match="Invalid log level"):
         _make(log_level="VERBOSE")
