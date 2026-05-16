@@ -119,7 +119,11 @@ def _patch_comma_split(src: PydanticBaseSettingsSource) -> None:
         value: Any,
         value_is_complex: bool,
     ) -> Any:
-        if value is not None and value_is_complex and isinstance(value, str):
+        if (
+            value is not None
+            and isinstance(value, str)
+            and field_name in {"owners", "repositories", "ghcr_packages", "enabled_events"}
+        ):
             try:
                 return json.loads(value)
             except (json.JSONDecodeError, ValueError):

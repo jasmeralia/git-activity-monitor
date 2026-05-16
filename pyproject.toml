@@ -30,9 +30,11 @@ git-activity-monitor = "git_activity_monitor.main:main"
 
 # Source files live directly in src/ (not src/git_activity_monitor/).
 # package-dir maps the package name to the src/ root.
-[tool.setuptools]
-packages = ["git_activity_monitor", "git_activity_monitor.monitors"]
-package-dir = {"git_activity_monitor" = "src", "git_activity_monitor.monitors" = "src/monitors"}
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+git_activity_monitor = ["py.typed"]
 
 [tool.ruff]
 line-length = 100
