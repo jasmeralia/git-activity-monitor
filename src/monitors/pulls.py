@@ -29,14 +29,17 @@ def run(
         owner, name = repo.split("/")
         repo_state = state_store.get_repo(repo)
 
-        # First run: initialize to current max without notifying
-        if repo_state.last_pr_number == 0:
-            pulls = gh_client.get_new_pulls(owner, name, 0)
-            if pulls:
-                max_num = max(p["number"] for p in pulls)
-                repo_state.last_pr_number = max_num
-                state_store.set_repo(repo, repo_state)
-                logger.info("%s: initialized last_pr_number=%d (no notification)", repo, max_num)
+        # First run (last_pr_number == -1): initialize cursor without notifying.
+        # Passing -1 as since_number returns all PRs (numbers are always >= 1).
+        if repo_state.last_pr_number < 0:
+            pulls = gh_client.get_new_pulls(owner, name, repo_state.last_pr_number)
+            repo_state.last_pr_number = max((p["number"] for p in pulls), default=0)
+            state_store.set_repo(repo, repo_state)
+            logger.info(
+                "%s: initialized last_pr_number=%d (no notification)",
+                repo,
+                repo_state.last_pr_number,
+            )
             state_store.save()
             continue
 

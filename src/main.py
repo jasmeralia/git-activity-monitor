@@ -6,6 +6,8 @@ import time
 import types
 from collections.abc import Callable
 
+import httpx
+
 from github_activity_monitor.config import Settings
 from github_activity_monitor.discord_client import DiscordClient
 from github_activity_monitor.github_client import GitHubClient
@@ -64,6 +66,16 @@ def _run_cycle(
     for fn in monitor_fns:
         try:
             fn(effective_settings, state_store, gh_client, discord_client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in {401, 403, 404}:
+                logger.critical(
+                    "Monitor %s: permanent webhook/API failure (HTTP %d) — "
+                    "verify DISCORD_WEBHOOK_URL and GITHUB_TOKEN are correct",
+                    fn.__name__,
+                    exc.response.status_code,
+                )
+            else:
+                logger.exception("Monitor %s failed; continuing with next monitor", fn.__name__)
         except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Monitor %s failed; continuing with next monitor", fn.__name__)
 

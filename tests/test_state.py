@@ -24,9 +24,9 @@ def test_round_trip(tmp_path: Path) -> None:
     assert store2.get_repo("owner/repo") == rs
 
 
-def test_unknown_repo_returns_zero_state(state_store: StateStore) -> None:
+def test_unknown_repo_returns_default_state(state_store: StateStore) -> None:
     rs = state_store.get_repo("nonexistent/repo")
-    assert rs == RepoState()
+    assert rs == RepoState()  # stars/watches=0, cursors=-1 (uninitialized)
 
 
 def test_atomic_write_no_tmp_left(tmp_path: Path) -> None:
@@ -45,6 +45,23 @@ def test_corrupt_json_recovers(tmp_path: Path) -> None:
     assert store.get_repo("owner/repo") == RepoState()
     assert (tmp_path / "state.corrupt").exists()
     assert not path.exists()
+
+
+def test_invalid_schema_recovers(tmp_path: Path) -> None:
+    path = tmp_path / "state.json"
+    path.write_text("[]", encoding="utf-8")  # valid JSON but wrong type
+    store = StateStore(path)
+    store.load()  # should not raise
+    assert store.get_repo("owner/repo") == RepoState()
+    assert (tmp_path / "state.corrupt").exists()
+
+
+def test_is_ghcr_initialized(tmp_path: Path) -> None:
+    store = StateStore(tmp_path / "state.json")
+    store.load()
+    assert not store.is_ghcr_initialized("owner/pkg")
+    store.set_ghcr("owner/pkg", [])  # initialize with empty list
+    assert store.is_ghcr_initialized("owner/pkg")
 
 
 def test_ghcr_round_trip(tmp_path: Path) -> None:

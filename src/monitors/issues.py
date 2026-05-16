@@ -29,14 +29,17 @@ def run(
         owner, name = repo.split("/")
         repo_state = state_store.get_repo(repo)
 
-        # First run: initialize to current max without notifying
-        if repo_state.last_issue_number == 0:
-            issues = gh_client.get_new_issues(owner, name, 0)
-            if issues:
-                max_num = max(i["number"] for i in issues)
-                repo_state.last_issue_number = max_num
-                state_store.set_repo(repo, repo_state)
-                logger.info("%s: initialized last_issue_number=%d (no notification)", repo, max_num)
+        # First run (last_issue_number == -1): initialize cursor without notifying.
+        # Passing -1 as since_number returns all issues (numbers are always >= 1).
+        if repo_state.last_issue_number < 0:
+            issues = gh_client.get_new_issues(owner, name, repo_state.last_issue_number)
+            repo_state.last_issue_number = max((i["number"] for i in issues), default=0)
+            state_store.set_repo(repo, repo_state)
+            logger.info(
+                "%s: initialized last_issue_number=%d (no notification)",
+                repo,
+                repo_state.last_issue_number,
+            )
             state_store.save()
             continue
 

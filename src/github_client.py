@@ -97,7 +97,7 @@ class GitHubClient:
         results = []
         for pr in self._paginate(
             f"/repos/{owner}/{repo}/pulls",
-            params={"state": "open", "sort": "created", "direction": "asc"},
+            params={"state": "all", "sort": "created", "direction": "asc"},
         ):
             if pr["number"] > since_number:
                 results.append(pr)
@@ -107,7 +107,7 @@ class GitHubClient:
         results = []
         for item in self._paginate(
             f"/repos/{owner}/{repo}/issues",
-            params={"state": "open", "sort": "created", "direction": "asc"},
+            params={"state": "all", "sort": "created", "direction": "asc"},
         ):
             if "pull_request" in item:
                 continue

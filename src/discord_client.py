@@ -17,6 +17,7 @@ from tenacity import (
 logger = logging.getLogger(__name__)
 
 _NO_MENTIONS: dict[str, Any] = {"parse": []}
+_MAX_RATE_LIMIT_RETRIES = 3
 
 
 def _is_retryable_discord(exc: BaseException) -> bool:
@@ -76,11 +77,18 @@ class DiscordClient:
         reraise=True,
     )
     def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        resp = self._client.request(method, url, **kwargs)
-        if resp.status_code == 429:
-            retry_after = float(resp.headers.get("X-RateLimit-Reset-After", "1.0"))
-            logger.warning("Discord rate limited; sleeping %.1fs", retry_after)
-            time.sleep(retry_after)
+        for attempt in range(_MAX_RATE_LIMIT_RETRIES + 1):
             resp = self._client.request(method, url, **kwargs)
+            if resp.status_code != 429:
+                break
+            if attempt < _MAX_RATE_LIMIT_RETRIES:
+                retry_after = float(resp.headers.get("X-RateLimit-Reset-After", "1.0"))
+                logger.warning(
+                    "Discord rate limited (attempt %d/%d); sleeping %.1fs",
+                    attempt + 1,
+                    _MAX_RATE_LIMIT_RETRIES,
+                    retry_after,
+                )
+                time.sleep(retry_after)
         resp.raise_for_status()
         return resp

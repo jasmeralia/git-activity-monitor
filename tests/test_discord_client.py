@@ -74,6 +74,7 @@ def test_429_inline_retry(dc: DiscordClient, monkeypatch: pytest.MonkeyPatch) ->
     respx.post(_WEBHOOK).mock(
         side_effect=[
             httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
             httpx.Response(200, json={"id": "7"}),
         ]
     )
