@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from github_activity_monitor.state import RepoState, StateStore
+from git_activity_monitor.state import RepoState, StateStore
 
 
 def test_load_nonexistent_file(tmp_path: Path) -> None:

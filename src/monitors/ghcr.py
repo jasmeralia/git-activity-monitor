@@ -3,13 +3,13 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from github_activity_monitor.monitors.utils import split_message_chunks
+from git_activity_monitor.monitors.utils import split_message_chunks
 
 if TYPE_CHECKING:
-    from github_activity_monitor.config import Settings
-    from github_activity_monitor.discord_client import DiscordClient
-    from github_activity_monitor.github_client import GitHubClient
-    from github_activity_monitor.state import StateStore
+    from git_activity_monitor.config import Settings
+    from git_activity_monitor.discord_client import DiscordClient
+    from git_activity_monitor.github_client import GitHubClient
+    from git_activity_monitor.state import StateStore
 
 logger = logging.getLogger(__name__)
 

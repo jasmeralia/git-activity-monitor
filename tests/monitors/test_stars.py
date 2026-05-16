@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from github_activity_monitor.config import Settings
-from github_activity_monitor.monitors.stars import run
-from github_activity_monitor.state import StateStore
+from git_activity_monitor.config import Settings
+from git_activity_monitor.monitors.stars import run
+from git_activity_monitor.state import StateStore
 
 
 def test_no_change_no_discord_call(

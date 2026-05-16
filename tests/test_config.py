@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from github_activity_monitor.config import Settings
+from git_activity_monitor.config import Settings
 
 
 def _make(**kwargs: object) -> Settings:

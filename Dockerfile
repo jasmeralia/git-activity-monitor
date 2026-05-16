@@ -21,4 +21,4 @@ USER monitor
 
 VOLUME ["/data"]
 
-ENTRYPOINT ["python", "-m", "github_activity_monitor"]
+ENTRYPOINT ["python", "-m", "git_activity_monitor"]

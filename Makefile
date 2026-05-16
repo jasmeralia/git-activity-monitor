@@ -17,8 +17,8 @@ setup:       ## Create .venv and install all deps including dev
 	python3 -m venv $(VENV)
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
-	@# Symlink so mypy/pylint can resolve 'github_activity_monitor' to src/
-	@test -e github_activity_monitor || ln -s src github_activity_monitor
+	@# Symlink so mypy/pylint can resolve 'git_activity_monitor' to src/
+	@test -e git_activity_monitor || ln -s src git_activity_monitor
 
 lint-fix:    ## Auto-fix formatting and import order (ruff format + ruff check --fix)
 	$(RUFF) format src/ tests/
@@ -26,12 +26,12 @@ lint-fix:    ## Auto-fix formatting and import order (ruff format + ruff check -
 
 lint:        ## Full lint pass: ruff, mypy, pylint (no auto-fix)
 	$(RUFF) check src/ tests/
-	$(MYPY) -p github_activity_monitor
-	$(PYLINT) github_activity_monitor
+	$(MYPY) -p git_activity_monitor
+	$(PYLINT) git_activity_monitor
 
 test:        ## Run pytest with coverage (minimum 80%)
 	$(PYTEST) tests/ \
-	  --cov=github_activity_monitor \
+	  --cov=git_activity_monitor \
 	  --cov-report=term-missing \
 	  --cov-report=xml:coverage.xml \
 	  --cov-fail-under=80 \

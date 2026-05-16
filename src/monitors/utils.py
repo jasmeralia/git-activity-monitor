@@ -12,7 +12,7 @@ def split_message_chunks(header: str, sections: list[str], max_len: int = 2000) 
     for section in sections:
         # Truncate sections that can never fit even alone
         if len(section) > max_section:
-            section = section[:max_section - 3] + "..."
+            section = section[: max_section - 3] + "..."
 
         section_len = len(section) + 1  # +1 for "\n" separator
         if current_len + section_len > max_len and current:

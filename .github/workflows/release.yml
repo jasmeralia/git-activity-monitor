@@ -49,8 +49,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/jasmeralia/github-activity-monitor:${{ steps.ver.outputs.version }}
-            ghcr.io/jasmeralia/github-activity-monitor:latest
+            ghcr.io/jasmeralia/git-activity-monitor:${{ steps.ver.outputs.version }}
+            ghcr.io/jasmeralia/git-activity-monitor:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           labels: |

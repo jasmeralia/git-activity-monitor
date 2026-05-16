@@ -18,9 +18,9 @@ _STATE_VERSION = 1
 class RepoState:
     stars: int = 0
     watches: int = 0
-    last_pr_number: int = -1       # -1 = uninitialized; 0 = initialized, no PRs yet
-    last_issue_number: int = -1    # -1 = uninitialized; 0 = initialized, no issues yet
-    last_release_id: int = -1      # -1 = uninitialized; 0 = initialized, no releases yet
+    last_pr_number: int = -1  # -1 = uninitialized; 0 = initialized, no PRs yet
+    last_issue_number: int = -1  # -1 = uninitialized; 0 = initialized, no issues yet
+    last_release_id: int = -1  # -1 = uninitialized; 0 = initialized, no releases yet
 
 
 class StateStore:

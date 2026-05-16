@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from github_activity_monitor.config import Settings
-from github_activity_monitor.monitors.ghcr import run
-from github_activity_monitor.state import StateStore
+from git_activity_monitor.config import Settings
+from git_activity_monitor.monitors.ghcr import run
+from git_activity_monitor.state import StateStore
 
 
 def _settings_with_ghcr(tmp_path: object) -> Settings:

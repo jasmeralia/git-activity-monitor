@@ -11,10 +11,10 @@ from .stars import run as run_stars
 from .utils import split_message_chunks
 
 if TYPE_CHECKING:
-    from github_activity_monitor.config import Settings
-    from github_activity_monitor.discord_client import DiscordClient
-    from github_activity_monitor.github_client import GitHubClient
-    from github_activity_monitor.state import StateStore
+    from git_activity_monitor.config import Settings
+    from git_activity_monitor.discord_client import DiscordClient
+    from git_activity_monitor.github_client import GitHubClient
+    from git_activity_monitor.state import StateStore
 
 MonitorFn = Callable[["Settings", "StateStore", "GitHubClient", "DiscordClient"], None]
 

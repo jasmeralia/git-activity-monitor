@@ -1,6 +1,6 @@
 services:
-  github-activity-monitor:
-    image: ghcr.io/jasmeralia/github-activity-monitor:latest
+  git-activity-monitor:
+    image: ghcr.io/jasmeralia/git-activity-monitor:latest
     restart: unless-stopped
     env_file:
       - .env

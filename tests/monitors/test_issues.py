@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from github_activity_monitor.config import Settings
-from github_activity_monitor.monitors.issues import run
-from github_activity_monitor.state import RepoState, StateStore
+from git_activity_monitor.config import Settings
+from git_activity_monitor.monitors.issues import run
+from git_activity_monitor.state import RepoState, StateStore
 
 
 def _issue(number: int, labels: list[str] | None = None) -> dict:  # type: ignore[type-arg]

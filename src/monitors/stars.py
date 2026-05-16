@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 import httpx
 
 if TYPE_CHECKING:
-    from github_activity_monitor.config import Settings
-    from github_activity_monitor.discord_client import DiscordClient
-    from github_activity_monitor.github_client import GitHubClient
-    from github_activity_monitor.state import RepoState, StateStore
+    from git_activity_monitor.config import Settings
+    from git_activity_monitor.discord_client import DiscordClient
+    from git_activity_monitor.github_client import GitHubClient
+    from git_activity_monitor.state import RepoState, StateStore
 
 logger = logging.getLogger(__name__)
 

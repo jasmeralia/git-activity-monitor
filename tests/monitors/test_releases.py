@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from github_activity_monitor.config import Settings
-from github_activity_monitor.monitors.releases import run
-from github_activity_monitor.state import RepoState, StateStore
+from git_activity_monitor.config import Settings
+from git_activity_monitor.monitors.releases import run
+from git_activity_monitor.state import RepoState, StateStore
 
 
 def _release(rid: int, tag: str = "v1.0", body: str = "") -> dict:  # type: ignore[type-arg]

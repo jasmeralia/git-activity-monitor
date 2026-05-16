@@ -22,7 +22,7 @@ main.py (polling loop)
 
 ## Source Layout
 
-Source files live directly in `src/` (not `src/github_activity_monitor/`). The `package-dir` mapping in `pyproject.toml` maps the `github_activity_monitor` package name to `src/`, so imports work as `from github_activity_monitor.config import Settings` while files are at `src/config.py`.
+Source files live directly in `src/` (not `src/git_activity_monitor/`). The `package-dir` mapping in `pyproject.toml` maps the `git_activity_monitor` package name to `src/`, so imports work as `from git_activity_monitor.config import Settings` while files are at `src/config.py`.
 
 ## State Schema
 

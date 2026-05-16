@@ -122,7 +122,7 @@ make setup          # create .venv and install deps
 make test           # run tests
 
 # Run locally (reads .env from current directory)
-STATE_FILE_PATH=./data/state.json .venv/bin/github-activity-monitor
+STATE_FILE_PATH=./data/state.json .venv/bin/git-activity-monitor
 ```
 
 ---

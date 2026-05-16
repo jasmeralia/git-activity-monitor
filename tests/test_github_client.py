@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from github_activity_monitor.github_client import GitHubClient
+from git_activity_monitor.github_client import GitHubClient
 
 _API = "https://api.github.com"
 

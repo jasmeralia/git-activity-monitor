@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from github_activity_monitor.discord_client import DiscordClient
+from git_activity_monitor.discord_client import DiscordClient
 
 _WEBHOOK = "https://discord.com/api/webhooks/111/tok"
 
@@ -64,13 +64,14 @@ def test_send_sets_allowed_mentions(dc: DiscordClient) -> None:
     dc.send_message("hello @everyone")
     body = route.calls.last.request.read()
     import json as _json
+
     payload = _json.loads(body)
     assert payload.get("allowed_mentions") == {"parse": []}
 
 
 @respx.mock
 def test_429_inline_retry(dc: DiscordClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("github_activity_monitor.discord_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("git_activity_monitor.discord_client.time.sleep", lambda _: None)
     respx.post(_WEBHOOK).mock(
         side_effect=[
             httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
