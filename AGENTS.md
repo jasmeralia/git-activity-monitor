@@ -20,3 +20,7 @@ After merging any PR, always monitor the resulting GitHub Actions runs to comple
     gh run watch <run-id>
 
 Check both the CI run (triggered by the merge commit) and the Release run (triggered by CI success). Do not report the merge as complete until all workflows have passed. If a workflow fails, investigate the logs with `gh run view <run-id> --log-failed` and fix the issue.
+
+After all workflows pass, switch the working copy back to master and pull:
+
+    git checkout master && git pull origin master

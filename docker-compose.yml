@@ -5,8 +5,3 @@ services:
     volumes:
       - /mnt/myzmirror/git-activity-monitor/.env:/app/.env:ro
       - /mnt/myzmirror/git-activity-monitor/data:/data
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
