@@ -121,3 +121,12 @@ class StateStore:
     @pinned_message_id.setter
     def pinned_message_id(self, value: str) -> None:
         self._data["pinned_message_id"] = value
+
+    @property
+    def pinned_repos(self) -> list[str]:
+        val = self._data.get("pinned_repos", [])
+        return [str(r) for r in val] if isinstance(val, list) else []
+
+    @pinned_repos.setter
+    def pinned_repos(self, value: list[str]) -> None:
+        self._data["pinned_repos"] = list(value)

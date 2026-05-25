@@ -28,7 +28,19 @@ def test_get_repo_stats(gh: GitHubClient) -> None:
         return_value=httpx.Response(200, json={"stargazers_count": 42, "subscribers_count": 7})
     )
     stats = gh.get_repo_stats("owner", "repo")
-    assert stats == {"stars": 42, "watches": 7}
+    assert stats == {"stars": 42, "watches": 7, "archived": False}
+
+
+@respx.mock
+def test_get_repo_stats_includes_archived(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/repos/owner/repo").mock(
+        return_value=httpx.Response(
+            200,
+            json={"stargazers_count": 1, "subscribers_count": 1, "archived": True},
+        )
+    )
+    stats = gh.get_repo_stats("owner", "repo")
+    assert stats["archived"] is True
 
 
 @respx.mock

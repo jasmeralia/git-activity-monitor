@@ -15,12 +15,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _build_summary(settings: Settings, staged: dict[str, RepoState]) -> str:
+def _build_summary(repos: list[str], staged: dict[str, RepoState]) -> str:
     now_ts = int(time.time())
     lines = [f"**GitHub Repository Stats** — last updated <t:{now_ts}:R>", ""]
-    for repo in settings.repositories:
+    for repo in repos:
         rs = staged[repo]
-        lines.append(f"**{repo}**  Stars: {rs.stars}  Watchers: {rs.watches}")
+        lines.append(
+            f"**[{repo}](https://github.com/{repo})**  Stars: {rs.stars}  Watchers: {rs.watches}"
+        )
     return "\n".join(lines)
 
 
@@ -61,9 +63,13 @@ def run(
     """Check star/watch counts and update the pinned Discord summary if any changed."""
     changed = False
     staged: dict[str, RepoState] = {}
+    active_repos: list[str] = []
     for repo in settings.repositories:
         owner, name = repo.split("/")
         stats = gh_client.get_repo_stats(owner, name)
+        if stats.get("archived"):
+            logger.debug("Skipping archived repo %s", repo)
+            continue
         repo_state = state_store.get_repo(repo)
         new_stars = stats["stars"]
         new_watches = stats["watches"]
@@ -82,14 +88,21 @@ def run(
         repo_state.stars = new_stars
         repo_state.watches = new_watches
         staged[repo] = repo_state
+        active_repos.append(repo)
+
+    # Force a refresh when the set of repos in the summary changes (e.g. a repo
+    # was archived or a new one was discovered) so the pinned message stays in sync.
+    if active_repos != state_store.pinned_repos:
+        changed = True
 
     if not changed:
         return
 
-    summary = _build_summary(settings, staged)
+    summary = _build_summary(active_repos, staged)
     pinned_id = settings.discord_pinned_message_id or state_store.pinned_message_id
     _update_pinned(discord_client, state_store, summary, pinned_id)
 
     for repo, repo_state in staged.items():
         state_store.set_repo(repo, repo_state)
+    state_store.pinned_repos = active_repos
     state_store.save()
