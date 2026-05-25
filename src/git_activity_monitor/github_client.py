@@ -86,11 +86,12 @@ class GitHubClient:
             yield from items
             page += 1
 
-    def get_repo_stats(self, owner: str, repo: str) -> dict[str, int]:
+    def get_repo_stats(self, owner: str, repo: str) -> dict[str, Any]:
         data = self._get(f"/repos/{owner}/{repo}")
         return {
             "stars": data["stargazers_count"],
             "watches": data["subscribers_count"],
+            "archived": bool(data.get("archived", False)),
         }
 
     def get_new_pulls(self, owner: str, repo: str, since_number: int) -> list[dict[str, Any]]:
