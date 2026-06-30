@@ -89,3 +89,38 @@ def test_discord_failure_state_not_advanced(
     with pytest.raises(RuntimeError):
         run(settings, state_store, mock_gh, mock_discord)
     assert state_store.get_ghcr("owner/my-app") == ["1.0.0"]
+
+
+def test_routes_to_releases_channel(
+    tmp_path: object,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    from git_activity_monitor.discord_client import DiscordClient
+
+    settings = _settings_with_ghcr(tmp_path)
+    state_store.set_ghcr("owner/my-app", ["1.0.0"])
+    mock_gh.get_new_package_versions.return_value = ["1.1.0"]
+    releases_client = MagicMock(spec=DiscordClient)
+    releases_client.send_message.return_value = {"id": "1"}
+
+    run(settings, state_store, mock_gh, mock_discord, releases_discord_client=releases_client)
+
+    releases_client.send_message.assert_called_once()
+    mock_discord.send_message.assert_not_called()
+
+
+def test_fallback_to_main_when_no_releases_client(
+    tmp_path: object,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_ghcr(tmp_path)
+    state_store.set_ghcr("owner/my-app", ["1.0.0"])
+    mock_gh.get_new_package_versions.return_value = ["1.1.0"]
+
+    run(settings, state_store, mock_gh, mock_discord, releases_discord_client=None)
+
+    mock_discord.send_message.assert_called_once()

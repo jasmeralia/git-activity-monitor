@@ -91,3 +91,42 @@ def test_pinned_message_id(tmp_path: Path) -> None:
     store2 = StateStore(tmp_path / "state.json")
     store2.load()
     assert store2.pinned_message_id == "9876543210"
+
+
+def test_releases_pinned_message_id(tmp_path: Path) -> None:
+    store = StateStore(tmp_path / "state.json")
+    store.load()
+    assert store.releases_pinned_message_id is None
+
+    store.releases_pinned_message_id = "rel-99"
+    store.save()
+
+    store2 = StateStore(tmp_path / "state.json")
+    store2.load()
+    assert store2.releases_pinned_message_id == "rel-99"
+
+
+def test_releases_pinned_repos(tmp_path: Path) -> None:
+    store = StateStore(tmp_path / "state.json")
+    store.load()
+    assert store.releases_pinned_repos == []
+
+    store.releases_pinned_repos = ["org/foo", "org/bar"]
+    store.save()
+
+    store2 = StateStore(tmp_path / "state.json")
+    store2.load()
+    assert store2.releases_pinned_repos == ["org/foo", "org/bar"]
+
+
+def test_releases_pinned_descriptions(tmp_path: Path) -> None:
+    store = StateStore(tmp_path / "state.json")
+    store.load()
+    assert store.releases_pinned_descriptions == {}
+
+    store.releases_pinned_descriptions = {"org/foo": "A great tool", "org/bar": ""}
+    store.save()
+
+    store2 = StateStore(tmp_path / "state.json")
+    store2.load()
+    assert store2.releases_pinned_descriptions == {"org/foo": "A great tool", "org/bar": ""}

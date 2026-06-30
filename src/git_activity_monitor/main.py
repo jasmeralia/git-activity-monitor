@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import signal
 import time
@@ -11,44 +12,66 @@ import httpx
 from git_activity_monitor.config import Settings
 from git_activity_monitor.discord_client import DiscordClient
 from git_activity_monitor.github_client import GitHubClient
-from git_activity_monitor.monitors import ALL_MONITORS, MonitorFn
+from git_activity_monitor.monitors import (
+    ALL_MONITORS,
+    MonitorFn,
+    run_ghcr,
+    run_releases,
+    run_releases_pinned,
+)
 from git_activity_monitor.state import StateStore
 
 logger = logging.getLogger(__name__)
 
 
 def _resolve_monitors(enabled_events: list[str]) -> list[MonitorFn]:
-    """Return deduplicated monitor functions in the order they first appear."""
+    """Return deduplicated standard monitor functions in the order they first appear.
+
+    Events not in ALL_MONITORS (releases, ghcr) are dispatched explicitly in _run_cycle.
+    """
     seen: set[Callable[..., None]] = set()
     result: list[MonitorFn] = []
     for event in enabled_events:
-        fn = ALL_MONITORS[event]
+        fn = ALL_MONITORS.get(event)
+        if fn is None:
+            continue
         if fn not in seen:
             seen.add(fn)
             result.append(fn)
     return result
 
 
-def _effective_repositories(settings: Settings, gh_client: GitHubClient) -> list[str]:
-    """Merge owner-discovered repos with explicitly listed repos, preserving order."""
+def _effective_repositories(
+    settings: Settings, gh_client: GitHubClient
+) -> tuple[list[str], list[str]]:
+    """Merge owner-discovered repos with explicitly listed repos, preserving order.
+
+    Returns (all_repos, public_repos). Owner-discovered repos carry privacy metadata;
+    explicitly listed repos are assumed public.
+    """
     seen: set[str] = set()
     repos: list[str] = []
+    public_repos: list[str] = []
     for owner in settings.owners:
         try:
-            discovered = gh_client.get_owner_repos(owner)
+            metadata = gh_client.get_owner_repos_metadata(owner)
         except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Failed to list repos for owner %s; skipping", owner)
-            discovered = []
-        for repo in discovered:
+            metadata = []
+        for item in metadata:
+            repo = item["full_name"]
             if repo not in seen:
                 seen.add(repo)
                 repos.append(repo)
-        logger.debug("Owner %s: discovered %d repo(s)", owner, len(discovered))
+                if not item["private"]:
+                    public_repos.append(repo)
+        logger.debug("Owner %s: discovered %d repo(s)", owner, len(metadata))
     for repo in settings.repositories:
         if repo not in seen:
             seen.add(repo)
             repos.append(repo)
-    return repos
+            public_repos.append(repo)
+    return repos, public_repos
 
 
 def _effective_ghcr_packages(settings: Settings, gh_client: GitHubClient) -> list[str]:
@@ -73,14 +96,15 @@ def _effective_ghcr_packages(settings: Settings, gh_client: GitHubClient) -> lis
     return packages
 
 
-def _run_cycle(
+def _run_cycle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     settings: Settings,
     state_store: StateStore,
     gh_client: GitHubClient,
     discord_client: DiscordClient,
     monitor_fns: list[MonitorFn],
+    releases_discord_client: DiscordClient | None = None,
 ) -> None:
-    effective = _effective_repositories(settings, gh_client)
+    effective, public = _effective_repositories(settings, gh_client)
     if not effective:
         logger.warning("No repositories to monitor this cycle.")
         return
@@ -90,23 +114,66 @@ def _run_cycle(
         else settings.ghcr_packages
     )
     effective_settings = settings.model_copy(
-        update={"repositories": effective, "ghcr_packages": effective_packages}
+        update={
+            "repositories": effective,
+            "ghcr_packages": effective_packages,
+            "public_repositories": public,
+        }
     )
-    for fn in monitor_fns:
+
+    def _call(fn: Callable[..., None], *args: object, **kwargs: object) -> None:
         try:
-            fn(effective_settings, state_store, gh_client, discord_client)
+            fn(*args, **kwargs)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in {401, 403, 404}:
                 logger.critical(
                     "Monitor %s: permanent webhook/API failure (HTTP %d) — "
                     "verify DISCORD_WEBHOOK_URL and GITHUB_TOKEN are correct",
-                    fn.__name__,
+                    getattr(fn, "__name__", fn),
                     exc.response.status_code,
                 )
             else:
-                logger.exception("Monitor %s failed; continuing with next monitor", fn.__name__)
+                logger.exception(
+                    "Monitor %s failed; continuing with next monitor",
+                    getattr(fn, "__name__", fn),
+                )
         except Exception:  # pylint: disable=broad-exception-caught
-            logger.exception("Monitor %s failed; continuing with next monitor", fn.__name__)
+            logger.exception(
+                "Monitor %s failed; continuing with next monitor",
+                getattr(fn, "__name__", fn),
+            )
+
+    for fn in monitor_fns:
+        _call(fn, effective_settings, state_store, gh_client, discord_client)
+
+    if "releases" in settings.enabled_events:
+        _call(
+            run_releases,
+            effective_settings,
+            state_store,
+            gh_client,
+            discord_client,
+            releases_discord_client=releases_discord_client,
+        )
+
+    if "ghcr" in settings.enabled_events:
+        _call(
+            run_ghcr,
+            effective_settings,
+            state_store,
+            gh_client,
+            discord_client,
+            releases_discord_client=releases_discord_client,
+        )
+
+    if releases_discord_client and settings.owners:
+        _call(
+            run_releases_pinned,
+            effective_settings,
+            state_store,
+            gh_client,
+            releases_discord_client,
+        )
 
 
 def main() -> None:
@@ -137,13 +204,26 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
+    releases_ctx: contextlib.AbstractContextManager[DiscordClient | None] = (
+        DiscordClient(settings.discord_releases_webhook_url)
+        if settings.discord_releases_webhook_url
+        else contextlib.nullcontext()
+    )
     with (
         GitHubClient(settings.github_token) as gh_client,
         DiscordClient(settings.discord_webhook_url) as discord_client,
+        releases_ctx as releases_discord_client,
     ):
         while not shutdown:
             cycle_start = time.monotonic()
-            _run_cycle(settings, state_store, gh_client, discord_client, monitor_fns)
+            _run_cycle(
+                settings,
+                state_store,
+                gh_client,
+                discord_client,
+                monitor_fns,
+                releases_discord_client=releases_discord_client,
+            )
             elapsed = time.monotonic() - cycle_start
             sleep_for = int(max(0.0, settings.poll_interval_seconds - elapsed))
             logger.debug("Cycle complete in %.1fs; sleeping %ds", elapsed, sleep_for)

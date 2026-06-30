@@ -17,14 +17,35 @@ _HEADER = "**New Releases**"
 _BODY_MAX = 200
 
 
+def _build_sections(new_by_repo: dict[str, list[dict[str, Any]]]) -> list[str]:
+    sections = []
+    for repo, releases in new_by_repo.items():
+        lines = [f"**{repo}**"]
+        for release in releases:
+            body = (release.get("body") or "").strip()
+            if len(body) > _BODY_MAX:
+                body = body[:_BODY_MAX] + "…"
+            tag = release["tag_name"]
+            url = release["html_url"]
+            title = release.get("name") or tag
+            line = f"**{title}** ({tag}) — [Release notes]({url})"
+            if body:
+                line += f"\n> {body}"
+            lines.append(line)
+        sections.append("\n".join(lines))
+    return sections
+
+
 def run(
     settings: Settings,
     state_store: StateStore,
     gh_client: GitHubClient,
     discord_client: DiscordClient,
+    releases_discord_client: DiscordClient | None = None,
 ) -> None:
     new_by_repo: dict[str, list[dict[str, Any]]] = {}
     max_id_by_repo: dict[str, int] = {}
+    public_repos = set(settings.public_repositories)
 
     for repo in settings.repositories:
         owner, name = repo.split("/")
@@ -52,24 +73,18 @@ def run(
     if not new_by_repo:
         return
 
-    sections = []
-    for repo, releases in new_by_repo.items():
-        lines = [f"**{repo}**"]
-        for release in releases:
-            body = (release.get("body") or "").strip()
-            if len(body) > _BODY_MAX:
-                body = body[:_BODY_MAX] + "…"
-            tag = release["tag_name"]
-            url = release["html_url"]
-            title = release.get("name") or tag
-            line = f"**{title}** ({tag}) — [Release notes]({url})"
-            if body:
-                line += f"\n> {body}"
-            lines.append(line)
-        sections.append("\n".join(lines))
+    # Route public repos to the releases channel; private repos stay on main channel.
+    target = releases_discord_client or discord_client
+    public_new = {r: v for r, v in new_by_repo.items() if r in public_repos}
+    private_new = {r: v for r, v in new_by_repo.items() if r not in public_repos}
 
-    for chunk in split_message_chunks(_HEADER, sections):
-        discord_client.send_message(chunk)
+    if public_new:
+        for chunk in split_message_chunks(_HEADER, _build_sections(public_new)):
+            target.send_message(chunk)
+
+    if private_new:
+        for chunk in split_message_chunks(_HEADER, _build_sections(private_new)):
+            discord_client.send_message(chunk)
 
     for repo, max_id in max_id_by_repo.items():
         rs = state_store.get_repo(repo)

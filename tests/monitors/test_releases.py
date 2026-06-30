@@ -1,12 +1,25 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from git_activity_monitor.config import Settings
+from git_activity_monitor.discord_client import DiscordClient
 from git_activity_monitor.monitors.releases import run
 from git_activity_monitor.state import RepoState, StateStore
+
+
+def _settings_with_public(tmp_path: Path, repos: list[str]) -> Settings:
+    return Settings(
+        github_token="tok",
+        discord_webhook_url="https://discord.com/api/webhooks/1/t",
+        repositories=repos,
+        public_repositories=repos,
+        state_file_path=tmp_path / "state.json",
+        _env_file=None,  # type: ignore[call-arg]
+    )
 
 
 def _release(rid: int, tag: str = "v1.0", body: str = "") -> dict:  # type: ignore[type-arg]
@@ -90,3 +103,63 @@ def test_discord_failure_state_not_advanced(
     with pytest.raises(RuntimeError):
         run(sample_settings, state_store, mock_gh, mock_discord)
     assert state_store.get_repo("owner/repo").last_release_id == 10
+
+
+def test_public_repo_routes_to_releases_channel(
+    tmp_path: Path,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_public(tmp_path, ["owner/repo"])
+    rs = RepoState(last_release_id=100)
+    state_store.set_repo("owner/repo", rs)
+    mock_gh.get_new_releases.return_value = [_release(101)]
+    releases_client = MagicMock(spec=DiscordClient)
+    releases_client.send_message.return_value = {"id": "1"}
+
+    run(settings, state_store, mock_gh, mock_discord, releases_discord_client=releases_client)
+
+    releases_client.send_message.assert_called_once()
+    mock_discord.send_message.assert_not_called()
+
+
+def test_private_repo_stays_on_main_channel(
+    tmp_path: Path,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = Settings(
+        github_token="tok",
+        discord_webhook_url="https://discord.com/api/webhooks/1/t",
+        repositories=["owner/repo"],
+        public_repositories=[],  # repo not in public set → private
+        state_file_path=tmp_path / "state.json",
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    rs = RepoState(last_release_id=10)
+    state_store.set_repo("owner/repo", rs)
+    mock_gh.get_new_releases.return_value = [_release(11)]
+    releases_client = MagicMock(spec=DiscordClient)
+
+    run(settings, state_store, mock_gh, mock_discord, releases_discord_client=releases_client)
+
+    mock_discord.send_message.assert_called_once()
+    releases_client.send_message.assert_not_called()
+
+
+def test_fallback_to_main_when_no_releases_client(
+    tmp_path: Path,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_public(tmp_path, ["owner/repo"])
+    rs = RepoState(last_release_id=100)
+    state_store.set_repo("owner/repo", rs)
+    mock_gh.get_new_releases.return_value = [_release(101)]
+
+    run(settings, state_store, mock_gh, mock_discord, releases_discord_client=None)
+
+    mock_discord.send_message.assert_called_once()

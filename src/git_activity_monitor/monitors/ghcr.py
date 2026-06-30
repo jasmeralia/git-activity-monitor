@@ -21,6 +21,7 @@ def run(
     state_store: StateStore,
     gh_client: GitHubClient,
     discord_client: DiscordClient,
+    releases_discord_client: DiscordClient | None = None,
 ) -> None:
     if not settings.ghcr_packages:
         return
@@ -57,8 +58,9 @@ def run(
         version_list = ", ".join(f"`{v}`" for v in versions)
         sections.append(f"**{package}**: {version_list}")
 
+    target = releases_discord_client or discord_client
     for chunk in split_message_chunks(_HEADER, sections):
-        discord_client.send_message(chunk)
+        target.send_message(chunk)
 
     for package, all_versions in all_versions_by_package.items():
         state_store.set_ghcr(package, all_versions)

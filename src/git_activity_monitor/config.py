@@ -22,12 +22,16 @@ class Settings(BaseSettings):
     github_token: str
     discord_webhook_url: str
     discord_pinned_message_id: str | None = None
+    discord_releases_webhook_url: str | None = None
+    discord_releases_pinned_message_id: str | None = None
 
     poll_interval_seconds: int = 300
     owners: list[str] = []
     repositories: list[str] = []
     ghcr_packages: list[str] = []
     enabled_events: list[str] = list(_VALID_EVENTS)
+    # Runtime-only: populated by main.py via model_copy; not read from env in practice.
+    public_repositories: list[str] = []
 
     state_file_path: Path = Path("/data/state.json")
     log_level: str = "INFO"
