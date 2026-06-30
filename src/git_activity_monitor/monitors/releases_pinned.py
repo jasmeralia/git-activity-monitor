@@ -15,17 +15,38 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _HEADER = "**Public Repositories**"
+_MAX_LEN = 1990
+_MAX_DESC = 60
+
+
+def _repo_line(repo: str, desc: str) -> str:
+    if desc and len(desc) > _MAX_DESC:
+        desc = desc[:_MAX_DESC] + "…"
+    entry = f"**[{repo}](https://github.com/{repo})**"
+    if desc:
+        entry += f" — {desc}"
+    return entry
 
 
 def _build_catalog(repos: list[str], descriptions: dict[str, str], timestamp: int) -> str:
-    lines = [f"{_HEADER} — last updated <t:{timestamp}:R>", ""]
-    for repo in repos:
-        desc = descriptions.get(repo, "")
-        entry = f"**[{repo}](https://github.com/{repo})**"
-        if desc:
-            entry += f" — {desc}"
-        lines.append(entry)
-    return "\n".join(lines)
+    header = f"{_HEADER} — last updated <t:{timestamp}:R>"
+    lines = [_repo_line(r, descriptions.get(r, "")) for r in repos]
+
+    full = header + "\n\n" + "\n".join(lines)
+    if len(full) <= _MAX_LEN:
+        return full
+
+    kept: list[str] = []
+    for line in lines:
+        kept.append(line)
+        remaining = len(lines) - len(kept)
+        trailer = f"\n…and {remaining} more" if remaining > 0 else ""
+        if len(header + "\n\n" + "\n".join(kept) + trailer) > _MAX_LEN:
+            kept.pop()
+            skipped = len(lines) - len(kept)
+            return header + "\n\n" + "\n".join(kept) + f"\n…and {skipped} more"
+
+    return header + "\n\n" + "\n".join(kept)
 
 
 def _update_pinned(

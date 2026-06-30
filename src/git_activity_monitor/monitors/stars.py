@@ -15,15 +15,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+_MAX_LEN = 1990
+
+
 def _build_summary(repos: list[str], staged: dict[str, RepoState]) -> str:
     now_ts = int(time.time())
-    lines = [f"**GitHub Repository Stats** — last updated <t:{now_ts}:R>", ""]
-    for repo in repos:
-        rs = staged[repo]
-        lines.append(
-            f"**[{repo}](https://github.com/{repo})**  Stars: {rs.stars}  Watchers: {rs.watches}"
-        )
-    return "\n".join(lines)
+    header = f"**GitHub Repository Stats** — last updated <t:{now_ts}:R>"
+    lines = [
+        f"**[{r}](https://github.com/{r})**"
+        f"  Stars: {staged[r].stars}  Watchers: {staged[r].watches}"
+        for r in repos
+    ]
+
+    full = header + "\n\n" + "\n".join(lines)
+    if len(full) <= _MAX_LEN:
+        return full
+
+    kept: list[str] = []
+    for line in lines:
+        kept.append(line)
+        remaining = len(lines) - len(kept)
+        trailer = f"\n…and {remaining} more" if remaining > 0 else ""
+        if len(header + "\n\n" + "\n".join(kept) + trailer) > _MAX_LEN:
+            kept.pop()
+            skipped = len(lines) - len(kept)
+            return header + "\n\n" + "\n".join(kept) + f"\n…and {skipped} more"
+
+    return header + "\n\n" + "\n".join(kept)
 
 
 def _update_pinned(
