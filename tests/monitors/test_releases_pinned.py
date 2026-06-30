@@ -219,3 +219,23 @@ def test_repo_with_no_description_omits_dash(
 
     content = mock_discord.send_message.call_args[0][0]
     assert " — " not in content.split("\n")[-1]
+
+
+def test_long_description_truncated() -> None:
+    from git_activity_monitor.monitors.releases_pinned import _build_catalog
+
+    repos = ["myorg/repo-a"]
+    descriptions = {"myorg/repo-a": "x" * 100}
+    content = _build_catalog(repos, descriptions, 0)
+    assert "x" * 61 not in content
+    assert "…" in content
+
+
+def test_catalog_truncates_when_too_many_repos() -> None:
+    from git_activity_monitor.monitors.releases_pinned import _MAX_LEN, _build_catalog
+
+    repos = [f"myorg/repo-{i:03d}" for i in range(50)]
+    descriptions = {r: "A description for this repository." for r in repos}
+    content = _build_catalog(repos, descriptions, 0)
+    assert len(content) <= _MAX_LEN
+    assert "…and" in content
