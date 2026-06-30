@@ -7,6 +7,7 @@ from .ghcr import run as run_ghcr
 from .issues import run as run_issues
 from .pulls import run as run_pulls
 from .releases import run as run_releases
+from .releases_pinned import run as run_releases_pinned
 from .stars import run as run_stars
 from .utils import split_message_chunks
 
@@ -18,14 +19,24 @@ if TYPE_CHECKING:
 
 MonitorFn = Callable[["Settings", "StateStore", "GitHubClient", "DiscordClient"], None]
 
-# "stars" and "watches" are handled by the same monitor function
-ALL_MONITORS: dict[str, MonitorFn] = {
+# Standard monitors dispatched uniformly by _run_cycle.
+# "releases" and "ghcr" are called explicitly with extra args and are omitted here.
+STANDARD_MONITORS: dict[str, MonitorFn] = {
     "stars": run_stars,
     "watches": run_stars,
     "prs": run_pulls,
     "issues": run_issues,
-    "releases": run_releases,
-    "ghcr": run_ghcr,
 }
 
-__all__ = ["ALL_MONITORS", "MonitorFn", "split_message_chunks"]
+# Backwards-compat alias used by existing tests.
+ALL_MONITORS = STANDARD_MONITORS
+
+__all__ = [
+    "ALL_MONITORS",
+    "STANDARD_MONITORS",
+    "MonitorFn",
+    "run_ghcr",
+    "run_releases",
+    "run_releases_pinned",
+    "split_message_chunks",
+]

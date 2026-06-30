@@ -36,6 +36,18 @@ def _filter_repos(items: list[dict[str, Any]]) -> list[str]:
     ]
 
 
+def _filter_repos_metadata(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "full_name": item["full_name"],
+            "private": bool(item.get("private", False)),
+            "description": (item.get("description") or "").strip(),
+        }
+        for item in items
+        if not item.get("fork", False) and not item.get("archived", False)
+    ]
+
+
 class GitHubClient:
     _BASE = "https://api.github.com"
 
@@ -160,6 +172,32 @@ class GitHubClient:
 
         # Public-only fallback for users the token does not own.
         return _filter_repos(
+            list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
+        )
+
+    def get_owner_repos_metadata(self, owner: str) -> list[dict[str, Any]]:
+        """Return metadata dicts for all non-fork, non-archived repos under owner.
+
+        Each dict contains: full_name, private, description.
+        Uses the same three-tier strategy as get_owner_repos.
+        """
+        user_items = [
+            r
+            for r in self._paginate("/user/repos", params={"affiliation": "owner"})
+            if r.get("owner", {}).get("login") == owner
+        ]
+        if user_items:
+            return _filter_repos_metadata(user_items)
+
+        try:
+            return _filter_repos_metadata(
+                list(self._paginate(f"/orgs/{owner}/repos", params={"type": "all"}))
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 404:
+                raise
+
+        return _filter_repos_metadata(
             list(self._paginate(f"/users/{owner}/repos", params={"type": "owner"}))
         )
 

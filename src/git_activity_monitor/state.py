@@ -130,3 +130,30 @@ class StateStore:
     @pinned_repos.setter
     def pinned_repos(self, value: list[str]) -> None:
         self._data["pinned_repos"] = list(value)
+
+    @property
+    def releases_pinned_message_id(self) -> str | None:
+        val = self._data.get("releases_pinned_message_id")
+        return str(val) if val is not None else None
+
+    @releases_pinned_message_id.setter
+    def releases_pinned_message_id(self, value: str) -> None:
+        self._data["releases_pinned_message_id"] = value
+
+    @property
+    def releases_pinned_repos(self) -> list[str]:
+        val = self._data.get("releases_pinned_repos", [])
+        return [str(r) for r in val] if isinstance(val, list) else []
+
+    @releases_pinned_repos.setter
+    def releases_pinned_repos(self, value: list[str]) -> None:
+        self._data["releases_pinned_repos"] = list(value)
+
+    @property
+    def releases_pinned_descriptions(self) -> dict[str, str]:
+        val = self._data.get("releases_pinned_descriptions", {})
+        return {str(k): str(v) for k, v in val.items()} if isinstance(val, dict) else {}
+
+    @releases_pinned_descriptions.setter
+    def releases_pinned_descriptions(self, value: dict[str, str]) -> None:
+        self._data["releases_pinned_descriptions"] = dict(value)

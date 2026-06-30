@@ -282,6 +282,78 @@ def test_get_owner_packages_public_fallback(gh: GitHubClient) -> None:
 
 
 @respx.mock
+def test_get_owner_repos_metadata_user_endpoint(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/repos").mock(
+        side_effect=_paginated(
+            [
+                {
+                    "full_name": "alice/public-repo",
+                    "fork": False,
+                    "archived": False,
+                    "private": False,
+                    "description": "A public tool",
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/private-repo",
+                    "fork": False,
+                    "archived": False,
+                    "private": True,
+                    "description": "",
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/forked",
+                    "fork": True,
+                    "archived": False,
+                    "private": False,
+                    "description": "Forked",
+                    "owner": {"login": "alice"},
+                },
+            ]
+        )
+    )
+    meta = gh.get_owner_repos_metadata("alice")
+    assert len(meta) == 2
+    public = next(m for m in meta if m["full_name"] == "alice/public-repo")
+    private = next(m for m in meta if m["full_name"] == "alice/private-repo")
+    assert public == {
+        "full_name": "alice/public-repo",
+        "private": False,
+        "description": "A public tool",
+    }
+    assert private == {"full_name": "alice/private-repo", "private": True, "description": ""}
+
+
+@respx.mock
+def test_get_owner_repos_metadata_filters_archived(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/user/repos").mock(
+        side_effect=_paginated(
+            [
+                {
+                    "full_name": "alice/active",
+                    "fork": False,
+                    "archived": False,
+                    "private": False,
+                    "description": "Active",
+                    "owner": {"login": "alice"},
+                },
+                {
+                    "full_name": "alice/archived",
+                    "fork": False,
+                    "archived": True,
+                    "private": False,
+                    "description": "Old",
+                    "owner": {"login": "alice"},
+                },
+            ]
+        )
+    )
+    meta = gh.get_owner_repos_metadata("alice")
+    assert [m["full_name"] for m in meta] == ["alice/active"]
+
+
+@respx.mock
 def test_get_repo_stats_retries_on_500(gh: GitHubClient, monkeypatch: pytest.MonkeyPatch) -> None:
     # Patch tenacity sleep so this test doesn't wait 2 seconds for the retry backoff
     monkeypatch.setattr("tenacity.nap.time.sleep", lambda _: None)
