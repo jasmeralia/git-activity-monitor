@@ -1,5 +1,15 @@
 # Agent Instructions
 
+## Branching and Pull Requests
+
+Never commit directly to `master`. All changes must go on a feature branch and be merged via a pull request:
+
+1. Create a branch: `git checkout -b feat/short-description`
+2. Commit changes on the branch
+3. Push the branch: `git push -u origin feat/short-description`
+4. Open a PR with `gh pr create`
+5. Monitor CI and Release workflows to completion before reporting done
+
 ## Required Verification for All Code Changes
 
 After any code change, always run:
