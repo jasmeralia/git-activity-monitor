@@ -114,13 +114,22 @@ class StateStore:
         self._data["ghcr"][package] = {"seen_versions": versions}
 
     @property
-    def pinned_message_id(self) -> str | None:
-        val = self._data.get("pinned_message_id")
-        return str(val) if val is not None else None
+    def pinned_message_ids(self) -> list[str]:
+        ids = self._data.get("pinned_message_ids")
+        if ids is not None:
+            return [str(i) for i in ids]
+        old = self._data.get("pinned_message_id")
+        return [str(old)] if old is not None else []
 
-    @pinned_message_id.setter
-    def pinned_message_id(self, value: str) -> None:
-        self._data["pinned_message_id"] = value
+    @pinned_message_ids.setter
+    def pinned_message_ids(self, value: list[str]) -> None:
+        self._data["pinned_message_ids"] = list(value)
+        self._data.pop("pinned_message_id", None)
+
+    @property
+    def pinned_message_id(self) -> str | None:
+        ids = self.pinned_message_ids
+        return ids[0] if ids else None
 
     @property
     def pinned_repos(self) -> list[str]:
@@ -132,13 +141,22 @@ class StateStore:
         self._data["pinned_repos"] = list(value)
 
     @property
-    def releases_pinned_message_id(self) -> str | None:
-        val = self._data.get("releases_pinned_message_id")
-        return str(val) if val is not None else None
+    def releases_pinned_message_ids(self) -> list[str]:
+        ids = self._data.get("releases_pinned_message_ids")
+        if ids is not None:
+            return [str(i) for i in ids]
+        old = self._data.get("releases_pinned_message_id")
+        return [str(old)] if old is not None else []
 
-    @releases_pinned_message_id.setter
-    def releases_pinned_message_id(self, value: str) -> None:
-        self._data["releases_pinned_message_id"] = value
+    @releases_pinned_message_ids.setter
+    def releases_pinned_message_ids(self, value: list[str]) -> None:
+        self._data["releases_pinned_message_ids"] = list(value)
+        self._data.pop("releases_pinned_message_id", None)
+
+    @property
+    def releases_pinned_message_id(self) -> str | None:
+        ids = self.releases_pinned_message_ids
+        return ids[0] if ids else None
 
     @property
     def releases_pinned_repos(self) -> list[str]:

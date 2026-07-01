@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from git_activity_monitor.monitors.utils import split_message_chunks
+
 if TYPE_CHECKING:
     from git_activity_monitor.config import Settings
     from git_activity_monitor.discord_client import DiscordClient
@@ -14,62 +16,51 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 _MAX_LEN = 1990
+_HEADER = "**GitHub Repository Stats**"
 
 
-def _build_summary(repos: list[str], staged: dict[str, RepoState]) -> str:
+def _build_summary(repos: list[str], staged: dict[str, RepoState]) -> list[str]:
     now_ts = int(time.time())
-    header = f"**GitHub Repository Stats** — last updated <t:{now_ts}:R>"
-    lines = [
+    header = f"{_HEADER} — last updated <t:{now_ts}:R>"
+    cont_header = f"{_HEADER} (cont.) — last updated <t:{now_ts}:R>"
+    sections = [
         f"**[{r}](https://github.com/{r})**"
         f"  Stars: {staged[r].stars}  Watchers: {staged[r].watches}"
         for r in repos
     ]
-
-    full = header + "\n\n" + "\n".join(lines)
-    if len(full) <= _MAX_LEN:
-        return full
-
-    kept: list[str] = []
-    for line in lines:
-        kept.append(line)
-        remaining = len(lines) - len(kept)
-        trailer = f"\n…and {remaining} more" if remaining > 0 else ""
-        if len(header + "\n\n" + "\n".join(kept) + trailer) > _MAX_LEN:
-            kept.pop()
-            skipped = len(lines) - len(kept)
-            return header + "\n\n" + "\n".join(kept) + f"\n…and {skipped} more"
-
-    return header + "\n\n" + "\n".join(kept)
+    return split_message_chunks(header, sections, max_len=_MAX_LEN, cont_header=cont_header)
 
 
 def _update_pinned(
     discord_client: DiscordClient,
     state_store: StateStore,
-    summary: str,
-    pinned_id: str | None,
+    chunks: list[str],
+    pinned_ids: list[str],
 ) -> None:
-    if pinned_id:
-        try:
-            discord_client.edit_message(pinned_id, summary)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 404:
-                raise
-            logger.warning("Pinned message %s not found; sending new message", pinned_id)
-            msg = discord_client.send_message(summary)
-            new_id = str(msg["id"])
-            state_store.pinned_message_id = new_id
-            logger.info(
-                "New pinned message ID: %s — set DISCORD_PINNED_MESSAGE_ID=%s", new_id, new_id
-            )
-    else:
-        msg = discord_client.send_message(summary)
-        new_id = str(msg["id"])
-        state_store.pinned_message_id = new_id
-        logger.info(
-            "Pinned summary message created. Set DISCORD_PINNED_MESSAGE_ID=%s in .env", new_id
-        )
+    is_first_run = not pinned_ids
+    new_ids: list[str] = []
+
+    for i, chunk in enumerate(chunks):
+        if i < len(pinned_ids):
+            msg_id = pinned_ids[i]
+            try:
+                discord_client.edit_message(msg_id, chunk)
+                new_ids.append(msg_id)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 404:
+                    raise
+                logger.warning("Pinned message %s not found; sending new message", msg_id)
+                msg = discord_client.send_message(chunk)
+                new_ids.append(str(msg["id"]))
+        else:
+            msg = discord_client.send_message(chunk)
+            new_ids.append(str(msg["id"]))
+
+    state_store.pinned_message_ids = new_ids
+
+    if is_first_run:
+        logger.info("Pinned summary created. Set DISCORD_PINNED_MESSAGE_ID=%s in .env", new_ids[0])
 
 
 def run(
@@ -116,9 +107,11 @@ def run(
     if not changed:
         return
 
-    summary = _build_summary(active_repos, staged)
-    pinned_id = settings.discord_pinned_message_id or state_store.pinned_message_id
-    _update_pinned(discord_client, state_store, summary, pinned_id)
+    chunks = _build_summary(active_repos, staged)
+    config_id = settings.discord_pinned_message_id
+    stored_ids = state_store.pinned_message_ids
+    pinned_ids = [config_id, *stored_ids[1:]] if config_id else stored_ids
+    _update_pinned(discord_client, state_store, chunks, pinned_ids)
 
     for repo, repo_state in staged.items():
         state_store.set_repo(repo, repo_state)

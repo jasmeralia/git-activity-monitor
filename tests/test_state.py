@@ -80,30 +80,71 @@ def test_ghcr_unknown_returns_empty(state_store: StateStore) -> None:
     assert state_store.get_ghcr("no/package") == []
 
 
-def test_pinned_message_id(tmp_path: Path) -> None:
+def test_pinned_message_ids(tmp_path: Path) -> None:
     store = StateStore(tmp_path / "state.json")
     store.load()
+    assert store.pinned_message_ids == []
     assert store.pinned_message_id is None
 
-    store.pinned_message_id = "9876543210"
+    store.pinned_message_ids = ["9876543210", "1111111111"]
     store.save()
 
     store2 = StateStore(tmp_path / "state.json")
     store2.load()
+    assert store2.pinned_message_ids == ["9876543210", "1111111111"]
     assert store2.pinned_message_id == "9876543210"
 
 
-def test_releases_pinned_message_id(tmp_path: Path) -> None:
+def test_pinned_message_ids_migrates_old_key(tmp_path: Path) -> None:
+    path = tmp_path / "state.json"
+    import json
+
+    path.write_text(
+        json.dumps({"version": 1, "repos": {}, "ghcr": {}, "pinned_message_id": "old-id"})
+    )
+    store = StateStore(path)
+    store.load()
+    assert store.pinned_message_ids == ["old-id"]
+    assert store.pinned_message_id == "old-id"
+
+    store.pinned_message_ids = ["new-id"]
+    store.save()
+    data = json.loads(path.read_text())
+    assert "pinned_message_ids" in data
+    assert "pinned_message_id" not in data
+
+
+def test_releases_pinned_message_ids(tmp_path: Path) -> None:
     store = StateStore(tmp_path / "state.json")
     store.load()
+    assert store.releases_pinned_message_ids == []
     assert store.releases_pinned_message_id is None
 
-    store.releases_pinned_message_id = "rel-99"
+    store.releases_pinned_message_ids = ["rel-99", "rel-100"]
     store.save()
 
     store2 = StateStore(tmp_path / "state.json")
     store2.load()
+    assert store2.releases_pinned_message_ids == ["rel-99", "rel-100"]
     assert store2.releases_pinned_message_id == "rel-99"
+
+
+def test_releases_pinned_message_ids_migrates_old_key(tmp_path: Path) -> None:
+    path = tmp_path / "state.json"
+    import json
+
+    path.write_text(
+        json.dumps({"version": 1, "repos": {}, "ghcr": {}, "releases_pinned_message_id": "old"})
+    )
+    store = StateStore(path)
+    store.load()
+    assert store.releases_pinned_message_ids == ["old"]
+
+    store.releases_pinned_message_ids = ["new"]
+    store.save()
+    data = json.loads(path.read_text())
+    assert "releases_pinned_message_ids" in data
+    assert "releases_pinned_message_id" not in data
 
 
 def test_releases_pinned_repos(tmp_path: Path) -> None:

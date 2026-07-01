@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import httpx
@@ -92,7 +93,7 @@ def test_star_change_calls_edit_with_pinned_id(
     mock_gh: MagicMock,
     mock_discord: MagicMock,
 ) -> None:
-    state_store.pinned_message_id = "99999"
+    state_store.pinned_message_ids = ["99999"]
     mock_gh.get_repo_stats.return_value = {"stars": 5, "watches": 2}
     mock_discord.edit_message.return_value = {"id": "99999"}
     run(sample_settings, state_store, mock_gh, mock_discord)
@@ -108,7 +109,7 @@ def test_edit_404_falls_back_to_send(
     mock_gh: MagicMock,
     mock_discord: MagicMock,
 ) -> None:
-    state_store.pinned_message_id = "deleted-id"
+    state_store.pinned_message_ids = ["deleted-id"]
     mock_gh.get_repo_stats.return_value = {"stars": 3, "watches": 1}
     mock_discord.edit_message.side_effect = httpx.HTTPStatusError(
         "not found", request=MagicMock(), response=MagicMock(status_code=404)
@@ -117,6 +118,31 @@ def test_edit_404_falls_back_to_send(
     run(sample_settings, state_store, mock_gh, mock_discord)
     mock_discord.send_message.assert_called_once()
     assert state_store.pinned_message_id == "new-id"
+
+
+def test_summary_splits_across_messages_when_many_repos(
+    tmp_path: Path,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    many_repos = [f"owner/repo-{i:03d}" for i in range(40)]
+    settings = Settings(
+        github_token="tok",
+        discord_webhook_url="https://discord.com/api/webhooks/1/t",
+        repositories=many_repos,
+        state_file_path=tmp_path / "state.json",
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    mock_gh.get_repo_stats.return_value = {"stars": 1, "watches": 1, "archived": False}
+    mock_discord.send_message.return_value = {"id": "1"}
+
+    run(settings, state_store, mock_gh, mock_discord)
+
+    assert mock_discord.send_message.call_count >= 2
+    assert state_store.pinned_message_ids != []
+    for call in mock_discord.send_message.call_args_list:
+        assert len(call[0][0]) <= 1990
 
 
 def test_discord_failure_state_not_advanced(

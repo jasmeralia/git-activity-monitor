@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from git_activity_monitor.monitors.utils import split_message_chunks
+
 if TYPE_CHECKING:
     from git_activity_monitor.config import Settings
     from git_activity_monitor.discord_client import DiscordClient
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _HEADER = "**Public Repositories**"
+_HEADER_CONT = "**Public Repositories** (cont.)"
 _MAX_LEN = 1990
 _MAX_DESC = 60
 
@@ -28,55 +31,44 @@ def _repo_line(repo: str, desc: str) -> str:
     return entry
 
 
-def _build_catalog(repos: list[str], descriptions: dict[str, str], timestamp: int) -> str:
+def _build_catalog(repos: list[str], descriptions: dict[str, str], timestamp: int) -> list[str]:
     header = f"{_HEADER} — last updated <t:{timestamp}:R>"
-    lines = [_repo_line(r, descriptions.get(r, "")) for r in repos]
-
-    full = header + "\n\n" + "\n".join(lines)
-    if len(full) <= _MAX_LEN:
-        return full
-
-    kept: list[str] = []
-    for line in lines:
-        kept.append(line)
-        remaining = len(lines) - len(kept)
-        trailer = f"\n…and {remaining} more" if remaining > 0 else ""
-        if len(header + "\n\n" + "\n".join(kept) + trailer) > _MAX_LEN:
-            kept.pop()
-            skipped = len(lines) - len(kept)
-            return header + "\n\n" + "\n".join(kept) + f"\n…and {skipped} more"
-
-    return header + "\n\n" + "\n".join(kept)
+    cont_header = f"{_HEADER_CONT} — last updated <t:{timestamp}:R>"
+    sections = [_repo_line(r, descriptions.get(r, "")) for r in repos]
+    return split_message_chunks(header, sections, max_len=_MAX_LEN, cont_header=cont_header)
 
 
 def _update_pinned(
     discord_client: DiscordClient,
     state_store: StateStore,
-    content: str,
-    pinned_id: str | None,
+    chunks: list[str],
+    pinned_ids: list[str],
 ) -> None:
-    if pinned_id:
-        try:
-            discord_client.edit_message(pinned_id, content)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 404:
-                raise
-            logger.warning("Releases pinned message %s not found; sending new message", pinned_id)
-            msg = discord_client.send_message(content)
-            new_id = str(msg["id"])
-            state_store.releases_pinned_message_id = new_id
-            logger.info(
-                "New releases pinned message ID: %s — set DISCORD_RELEASES_PINNED_MESSAGE_ID=%s",
-                new_id,
-                new_id,
-            )
-    else:
-        msg = discord_client.send_message(content)
-        new_id = str(msg["id"])
-        state_store.releases_pinned_message_id = new_id
+    is_first_run = not pinned_ids
+    new_ids: list[str] = []
+
+    for i, chunk in enumerate(chunks):
+        if i < len(pinned_ids):
+            msg_id = pinned_ids[i]
+            try:
+                discord_client.edit_message(msg_id, chunk)
+                new_ids.append(msg_id)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 404:
+                    raise
+                logger.warning("Releases pinned message %s not found; sending new message", msg_id)
+                msg = discord_client.send_message(chunk)
+                new_ids.append(str(msg["id"]))
+        else:
+            msg = discord_client.send_message(chunk)
+            new_ids.append(str(msg["id"]))
+
+    state_store.releases_pinned_message_ids = new_ids
+
+    if is_first_run:
         logger.info(
             "Releases pinned catalog created. Set DISCORD_RELEASES_PINNED_MESSAGE_ID=%s in .env",
-            new_id,
+            new_ids[0],
         )
 
 
@@ -109,11 +101,12 @@ def run(
     ):
         return
 
-    pinned_id = (
-        settings.discord_releases_pinned_message_id or state_store.releases_pinned_message_id
-    )
-    content = _build_catalog(repos, descriptions, int(time.time()))
-    _update_pinned(discord_client, state_store, content, pinned_id)
+    config_id = settings.discord_releases_pinned_message_id
+    stored_ids = state_store.releases_pinned_message_ids
+    pinned_ids = [config_id, *stored_ids[1:]] if config_id else stored_ids
+
+    chunks = _build_catalog(repos, descriptions, int(time.time()))
+    _update_pinned(discord_client, state_store, chunks, pinned_ids)
 
     state_store.releases_pinned_repos = repos
     state_store.releases_pinned_descriptions = descriptions

@@ -42,6 +42,7 @@ def test_first_run_sends_message(
     assert "myorg/repo-a" in content
     assert "A repo" in content
     assert state_store.releases_pinned_message_id == "111"
+    assert state_store.releases_pinned_message_ids == ["111"]
     assert state_store.releases_pinned_repos == ["myorg/repo-a"]
     assert state_store.releases_pinned_descriptions == {"myorg/repo-a": "A repo"}
 
@@ -76,7 +77,7 @@ def test_repo_list_change_triggers_update(
     ]
     state_store.releases_pinned_repos = ["myorg/repo-a"]
     state_store.releases_pinned_descriptions = {"myorg/repo-a": ""}
-    state_store.releases_pinned_message_id = "999"
+    state_store.releases_pinned_message_ids = ["999"]
     mock_discord.edit_message.return_value = {"id": "999"}
 
     run(settings, state_store, mock_gh, mock_discord)
@@ -97,7 +98,7 @@ def test_description_change_triggers_update(
     mock_gh.get_owner_repos_metadata.return_value = [_meta("myorg/repo-a", description="New desc")]
     state_store.releases_pinned_repos = ["myorg/repo-a"]
     state_store.releases_pinned_descriptions = {"myorg/repo-a": "Old desc"}
-    state_store.releases_pinned_message_id = "42"
+    state_store.releases_pinned_message_ids = ["42"]
     mock_discord.edit_message.return_value = {"id": "42"}
 
     run(settings, state_store, mock_gh, mock_discord)
@@ -141,7 +142,7 @@ def test_edit_404_falls_back_to_send(
 ) -> None:
     settings = _settings(tmp_path)
     mock_gh.get_owner_repos_metadata.return_value = [_meta("myorg/repo-a")]
-    state_store.releases_pinned_message_id = "deleted"
+    state_store.releases_pinned_message_ids = ["deleted"]
     mock_discord.edit_message.side_effect = httpx.HTTPStatusError(
         "not found", request=MagicMock(), response=MagicMock(status_code=404)
     )
@@ -151,6 +152,27 @@ def test_edit_404_falls_back_to_send(
 
     mock_discord.send_message.assert_called_once()
     assert state_store.releases_pinned_message_id == "new-id"
+
+
+def test_catalog_splits_across_messages_when_many_repos(
+    tmp_path: Path,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings(tmp_path)
+    many_repos = [
+        _meta(f"myorg/repo-{i:03d}", description="A description for this repo.") for i in range(50)
+    ]
+    mock_gh.get_owner_repos_metadata.return_value = many_repos
+    mock_discord.send_message.return_value = {"id": "1"}
+
+    run(settings, state_store, mock_gh, mock_discord)
+
+    assert mock_discord.send_message.call_count >= 2
+    assert len(state_store.releases_pinned_message_ids) >= 2
+    for call in mock_discord.send_message.call_args_list:
+        assert len(call[0][0]) <= 1990
 
 
 def test_api_error_returns_without_update(
@@ -226,16 +248,19 @@ def test_long_description_truncated() -> None:
 
     repos = ["myorg/repo-a"]
     descriptions = {"myorg/repo-a": "x" * 100}
-    content = _build_catalog(repos, descriptions, 0)
-    assert "x" * 61 not in content
-    assert "…" in content
+    chunks = _build_catalog(repos, descriptions, 0)
+    assert len(chunks) == 1
+    assert "x" * 61 not in chunks[0]
+    assert "…" in chunks[0]
 
 
-def test_catalog_truncates_when_too_many_repos() -> None:
+def test_catalog_splits_not_truncates() -> None:
     from git_activity_monitor.monitors.releases_pinned import _MAX_LEN, _build_catalog
 
     repos = [f"myorg/repo-{i:03d}" for i in range(50)]
     descriptions = {r: "A description for this repository." for r in repos}
-    content = _build_catalog(repos, descriptions, 0)
-    assert len(content) <= _MAX_LEN
-    assert "…and" in content
+    chunks = _build_catalog(repos, descriptions, 0)
+    assert len(chunks) >= 2
+    assert "…and" not in "".join(chunks)
+    for chunk in chunks:
+        assert len(chunk) <= _MAX_LEN
