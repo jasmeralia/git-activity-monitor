@@ -105,6 +105,38 @@ def test_discord_failure_state_not_advanced(
     assert state_store.get_repo("owner/repo").last_release_id == 10
 
 
+def test_releases_ordered_oldest_to_newest(
+    sample_settings: Settings,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    rs = RepoState(last_release_id=100)
+    state_store.set_repo("owner/repo", rs)
+    # API returns newest-first.
+    mock_gh.get_new_releases.return_value = [_release(103, "v3.0"), _release(102, "v2.0")]
+    run(sample_settings, state_store, mock_gh, mock_discord)
+    msg = mock_discord.send_message.call_args[0][0]
+    assert msg.index("v2.0") < msg.index("v3.0")
+
+
+def test_only_latest_release_link_unsuppressed(
+    sample_settings: Settings,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    rs = RepoState(last_release_id=100)
+    state_store.set_repo("owner/repo", rs)
+    # API returns newest-first.
+    mock_gh.get_new_releases.return_value = [_release(103, "v3.0"), _release(102, "v2.0")]
+    run(sample_settings, state_store, mock_gh, mock_discord)
+    msg = mock_discord.send_message.call_args[0][0]
+    assert "(<https://gh/releases/v2.0>)" in msg
+    assert "(https://gh/releases/v3.0)" in msg
+    assert "(<https://gh/releases/v3.0>)" not in msg
+
+
 def test_public_repo_routes_to_releases_channel(
     tmp_path: Path,
     state_store: StateStore,

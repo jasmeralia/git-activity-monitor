@@ -55,7 +55,9 @@ def run(
     for repo, pulls in new_by_repo.items():
         lines = [f"**{repo}**"]
         for pr in pulls:
-            lines.append(f"• [{_pr_title(pr)}]({pr['html_url']}) by `{pr['user']['login']}`")
+            # Suppress link previews: several PRs landing at once (e.g. dependabot,
+            # or a cross-repo GHA change) would otherwise produce a wall of embeds.
+            lines.append(f"• [{_pr_title(pr)}](<{pr['html_url']}>) by `{pr['user']['login']}`")
         sections.append("\n".join(lines))
 
     for chunk in split_message_chunks(_HEADER, sections):

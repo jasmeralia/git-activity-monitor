@@ -73,6 +73,21 @@ def test_discord_failure_state_not_advanced(
     assert state_store.get_repo("owner/repo").last_pr_number == 5
 
 
+def test_pr_link_preview_suppressed(
+    sample_settings: Settings,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    rs = RepoState(last_pr_number=5)
+    state_store.set_repo("owner/repo", rs)
+    mock_gh.get_new_pulls.return_value = [_pr(6), _pr(7)]
+    run(sample_settings, state_store, mock_gh, mock_discord)
+    msg = mock_discord.send_message.call_args[0][0]
+    assert "(<https://gh/pr/6>)" in msg
+    assert "(<https://gh/pr/7>)" in msg
+
+
 def test_multiple_prs_one_message(
     sample_settings: Settings,
     state_store: StateStore,
