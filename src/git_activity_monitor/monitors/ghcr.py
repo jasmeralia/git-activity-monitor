@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from git_activity_monitor.monitors.utils import split_message_chunks
@@ -14,6 +15,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _HEADER = "**New Container Image Versions**"
+
+# Digest-derived tags like "sha-13839b3" aren't meaningful release identifiers
+# and clutter the report; omit them while still tracking them as seen.
+_SHA_TAG_PATTERN = re.compile(r"^sha-[0-9a-f]+$", re.IGNORECASE)
+
+
+def _is_reportable(version: str) -> bool:
+    return not _SHA_TAG_PATTERN.match(version)
 
 
 def run(
@@ -55,12 +64,15 @@ def run(
 
     sections = []
     for package, versions in new_by_package.items():
-        version_list = ", ".join(f"`{v}`" for v in versions)
-        sections.append(f"**{package}**: {version_list}")
+        reportable = [v for v in versions if _is_reportable(v)]
+        if reportable:
+            version_list = ", ".join(f"`{v}`" for v in reportable)
+            sections.append(f"**{package}**: {version_list}")
 
-    target = releases_discord_client or discord_client
-    for chunk in split_message_chunks(_HEADER, sections):
-        target.send_message(chunk)
+    if sections:
+        target = releases_discord_client or discord_client
+        for chunk in split_message_chunks(_HEADER, sections):
+            target.send_message(chunk)
 
     for package, all_versions in all_versions_by_package.items():
         state_store.set_ghcr(package, all_versions)
