@@ -111,6 +111,38 @@ def test_routes_to_releases_channel(
     mock_discord.send_message.assert_not_called()
 
 
+def test_sha_tag_omitted_from_message(
+    tmp_path: object,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_ghcr(tmp_path)
+    state_store.set_ghcr("owner/my-app", ["1.0.0"])
+    mock_gh.get_new_package_versions.return_value = ["sha-13839b3", "1.1.0"]
+    run(settings, state_store, mock_gh, mock_discord)
+    mock_discord.send_message.assert_called_once()
+    msg = mock_discord.send_message.call_args[0][0]
+    assert "1.1.0" in msg
+    assert "sha-13839b3" not in msg
+    # sha tag is still tracked so it isn't reported again later
+    assert "sha-13839b3" in state_store.get_ghcr("owner/my-app")
+
+
+def test_only_sha_tags_updates_state_without_discord(
+    tmp_path: object,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_ghcr(tmp_path)
+    state_store.set_ghcr("owner/my-app", ["1.0.0"])
+    mock_gh.get_new_package_versions.return_value = ["sha-13839b3"]
+    run(settings, state_store, mock_gh, mock_discord)
+    mock_discord.send_message.assert_not_called()
+    assert "sha-13839b3" in state_store.get_ghcr("owner/my-app")
+
+
 def test_fallback_to_main_when_no_releases_client(
     tmp_path: object,
     state_store: StateStore,
