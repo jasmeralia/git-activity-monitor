@@ -20,13 +20,19 @@ _BODY_MAX = 200
 def _build_sections(new_by_repo: dict[str, list[dict[str, Any]]]) -> list[str]:
     sections = []
     for repo, releases in new_by_repo.items():
+        # GitHub returns releases newest-first; report oldest-first. Only let Discord
+        # generate a link preview for the latest release, so a repo with several
+        # releases in one cycle doesn't produce a wall of embeds.
+        ordered = list(reversed(releases))
         lines = [f"**{repo}**"]
-        for release in releases:
+        for i, release in enumerate(ordered):
             body = (release.get("body") or "").strip()
             if len(body) > _BODY_MAX:
                 body = body[:_BODY_MAX] + "…"
             tag = release["tag_name"]
             url = release["html_url"]
+            if i < len(ordered) - 1:
+                url = f"<{url}>"
             title = release.get("name") or tag
             line = f"**{title}** ({tag}) — [Release notes]({url})"
             if body:
