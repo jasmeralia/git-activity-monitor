@@ -111,6 +111,21 @@ def test_routes_to_releases_channel(
     mock_discord.send_message.assert_not_called()
 
 
+def test_versions_reported_oldest_to_newest(
+    tmp_path: object,
+    state_store: StateStore,
+    mock_gh: MagicMock,
+    mock_discord: MagicMock,
+) -> None:
+    settings = _settings_with_ghcr(tmp_path)
+    state_store.set_ghcr("owner/my-app", ["1.0.24"])
+    # API returns newest-first.
+    mock_gh.get_new_package_versions.return_value = ["1.0.27", "1.0.26", "1.0.25"]
+    run(settings, state_store, mock_gh, mock_discord)
+    msg = mock_discord.send_message.call_args[0][0]
+    assert msg.index("1.0.25") < msg.index("1.0.26") < msg.index("1.0.27")
+
+
 def test_sha_tag_omitted_from_message(
     tmp_path: object,
     state_store: StateStore,

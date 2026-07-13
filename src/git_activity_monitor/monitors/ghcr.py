@@ -64,7 +64,8 @@ def run(
 
     sections = []
     for package, versions in new_by_package.items():
-        reportable = [v for v in versions if _is_reportable(v)]
+        # The GitHub API returns versions newest-first; the report reads oldest-first.
+        reportable = [v for v in reversed(versions) if _is_reportable(v)]
         if reportable:
             version_list = ", ".join(f"`{v}`" for v in reportable)
             sections.append(f"**{package}**: {version_list}")
