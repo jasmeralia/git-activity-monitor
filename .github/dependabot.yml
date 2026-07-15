@@ -9,6 +9,8 @@ updates:
     python-deps:
       patterns:
       - '*'
+  reviewers:
+  - jasmeralia
 - package-ecosystem: github-actions
   directory: /
   schedule:
@@ -18,3 +20,5 @@ updates:
     gha-deps:
       patterns:
       - '*'
+  reviewers:
+  - jasmeralia
