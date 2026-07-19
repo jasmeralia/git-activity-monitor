@@ -7,7 +7,7 @@ PYLINT        := $(VENV)/bin/pylint
 PYTEST        := $(VENV)/bin/pytest
 SCRIPTS_DIR   := scripts
 
-.PHONY: help setup lint-fix lint test shellcheck hadolint all-checks
+.PHONY: help setup lintfix lint test shellcheck hadolint all-checks
 
 help:        ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | \
@@ -18,7 +18,7 @@ setup:       ## Create .venv and install all deps including dev
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
 
-lint-fix:    ## Auto-fix formatting and import order (ruff format + ruff check --fix)
+lintfix:    ## Auto-fix formatting and import order (ruff format + ruff check --fix)
 	$(RUFF) format src/ tests/
 	$(RUFF) check --fix src/ tests/
 

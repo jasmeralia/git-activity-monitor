@@ -203,13 +203,13 @@ If the state file is corrupt or has an invalid schema on startup, it is renamed 
 
 ```bash
 make setup          # create .venv, install all deps
-make lint-fix       # auto-fix formatting (ruff format + ruff check --fix)
+make lintfix       # auto-fix formatting (ruff format + ruff check --fix)
 make lint           # full lint: ruff + mypy + pylint
 make test           # pytest with coverage (minimum 80%)
 make all-checks     # lint + shellcheck + hadolint + test
 ```
 
-All code changes must pass `make lint-fix && make lint && make test` before committing. See [AGENTS.md](AGENTS.md).
+All code changes must pass `make lintfix && make lint && make test` before committing. See [AGENTS.md](AGENTS.md).
 
 ---
 
