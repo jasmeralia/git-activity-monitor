@@ -14,7 +14,7 @@ Never commit directly to `master`. All changes must go on a feature branch and b
 
 After any code change, always run:
 
-    make lint-fix && make lint && make test
+    make lintfix && make lint && make test
 
 This runs:
 1. `ruff format` + `ruff check --fix` — auto-format and fix lintable issues
