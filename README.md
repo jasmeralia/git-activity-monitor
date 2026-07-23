@@ -217,6 +217,16 @@ Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Each 
 
 The script exits non-zero if any PR needs manual review, so it's safe to use in a monitoring/cron context.
 
+### `scripts/list-open-prs.sh`
+
+Lists every open PR across all of an owner's repos, with the author and a direct link:
+
+```bash
+scripts/list-open-prs.sh [owner]
+```
+
+Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered. Output is grouped by repo, one line per PR (`#number by author: title`) followed by its URL, with a summary count at the end.
+
 ---
 
 ## Development
