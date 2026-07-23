@@ -199,6 +199,26 @@ If the state file is corrupt or has an invalid schema on startup, it is renamed 
 
 ---
 
+## Maintenance Scripts
+
+### `scripts/dependabot-merge.sh`
+
+Merges (or auto-merges) open Dependabot PRs on a given repo:
+
+```bash
+scripts/dependabot-merge.sh <owner/repo>
+```
+
+Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Each open Dependabot PR is checked and acted on individually — status is re-fetched immediately before acting on each PR, since merging one PR can change the check/rebase status of the next.
+
+- **Private repos**: PRs with passing checks are squash-merged directly. If a PR needs rebasing against its base branch (e.g. because an earlier PR in the same run was just merged), it's left alone — a `@dependabot rebase` comment is posted instead, and it's reported as needing a follow-up run once Dependabot finishes rebasing.
+- **Public repos**: PRs with passing checks have auto-merge (squash) enabled. Dependabot rebases those PRs itself if a later merge makes it necessary, so no manual rebase step is needed.
+- **PRs with failing checks are never touched** — they're surfaced in the final summary as needing manual review, along with any PRs blocked by branch protection (e.g. missing required review) or still pending (checks running, mergeability not yet computed).
+
+The script exits non-zero if any PR needs manual review, so it's safe to use in a monitoring/cron context.
+
+---
+
 ## Development
 
 ```bash
