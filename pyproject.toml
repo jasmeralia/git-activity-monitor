@@ -27,6 +27,7 @@ dev = [
 
 [project.scripts]
 git-activity-monitor = "git_activity_monitor.main:main"
+dependabot-alert-notify = "git_activity_monitor.dependabot_alert_notify:main"
 
 # Source files live directly in src/ (not src/git_activity_monitor/).
 # package-dir maps the package name to the src/ root.

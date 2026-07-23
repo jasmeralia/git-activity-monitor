@@ -239,6 +239,32 @@ Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Same 
 
 ---
 
+## Dependabot Alert Notifications (Reusable Workflow)
+
+`dependabot_alert` webhook events (created/dismissed/fixed/reopened) don't show up as PRs, so they're invisible to the event types above — they only fire for public repos (or private repos with GitHub Advanced Security). This repo hosts a [reusable workflow](https://docs.github.com/en/actions/using-workflows/reusing-workflows), `.github/workflows/dependabot-alert-discord.yml`, that other repos call to post a Discord embed whenever one of these fires.
+
+Each subscribing repo needs:
+
+1. A small trigger workflow (`dependabot_alert` is repo-scoped, so this can't be centralized further):
+
+   ```yaml
+   name: Dependabot Alert Notify
+   on:
+     dependabot_alert:
+       types: [created, dismissed, fixed, reopened, auto_dismissed, auto_reopened, reintroduced]
+   jobs:
+     notify:
+       uses: jasmeralia/git-activity-monitor/.github/workflows/dependabot-alert-discord.yml@master
+       secrets:
+         discord_webhook_url: ${{ secrets.DISCORD_SECURITY_WEBHOOK_URL }}
+   ```
+
+2. A `DISCORD_SECURITY_WEBHOOK_URL` repo secret (personal accounts have no org-level secrets to inherit from, so this has to be set per repo: `gh secret set DISCORD_SECURITY_WEBHOOK_URL --repo <owner>/<repo>`).
+
+The embed is built by `dependabot-alert-notify` (`src/git_activity_monitor/dependabot_alert_notify.py`, installed as a console script) — color-coded by severity for new/reopened alerts, green for fixed, gray for dismissed, skipped entirely for `assignees_changed`. It reads the triggering event straight from `$GITHUB_EVENT_PATH` (reusable workflows inherit the caller's original event payload) rather than needing alert data passed in as inputs.
+
+---
+
 ## Development
 
 ```bash
