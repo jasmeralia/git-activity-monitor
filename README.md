@@ -225,7 +225,7 @@ Lists every open PR across all of an owner's repos, with the author and a direct
 scripts/list-open-prs.sh [owner]
 ```
 
-Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered. Output is grouped by repo, one line per PR (`#number by author: title`) followed by its URL, with a summary count at the end.
+Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered. Output is grouped by repo, one line per PR (`#number by author, assigned: ..., opened YYYY-MM-DD: title`, or `assigned: unassigned` when nobody is assigned) followed by its URL, with a summary count at the end.
 
 ---
 

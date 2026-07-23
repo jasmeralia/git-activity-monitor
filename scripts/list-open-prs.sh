@@ -35,8 +35,10 @@ repos_with_prs=0
 while IFS= read -r repo; do
   [[ -z "$repo" ]] && continue
 
-  prs="$(gh pr list --repo "$repo" --state open --json number,title,author,url \
-    -q '.[] | "\(.number)\t\(.author.login)\t\(.title)\t\(.url)"')"
+  prs="$(gh pr list --repo "$repo" --state open --json number,title,author,url,assignees,createdAt \
+    -q '.[] | [.number, .author.login,
+        (if (.assignees | length) == 0 then "unassigned" else ([.assignees[].login] | join(", ")) end),
+        .createdAt, .title, .url] | @tsv')"
 
   [[ -z "$prs" ]] && continue
 
@@ -45,8 +47,8 @@ while IFS= read -r repo; do
   total_prs=$((total_prs + pr_count))
 
   echo "$repo ($pr_count open PR$([[ "$pr_count" -eq 1 ]] || echo s))"
-  while IFS=$'\t' read -r number author title url; do
-    echo "  #$number by $author: $title"
+  while IFS=$'\t' read -r number author assignees created title url; do
+    echo "  #$number by $author, assigned: $assignees, opened ${created:0:10}: $title"
     echo "    $url"
   done <<<"$prs"
   echo
