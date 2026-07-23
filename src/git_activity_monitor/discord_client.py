@@ -57,6 +57,17 @@ class DiscordClient:
         result: dict[str, Any] = resp.json()
         return result
 
+    def send_embed(self, embed: dict[str, Any]) -> dict[str, Any]:
+        """Send a message containing a single embed via webhook."""
+        resp = self._request(
+            "POST",
+            self._webhook_url,
+            params={"wait": "true"},
+            json={"embeds": [embed], "allowed_mentions": _NO_MENTIONS},
+        )
+        result: dict[str, Any] = resp.json()
+        return result
+
     def edit_message(self, message_id: str, content: str) -> dict[str, Any]:
         """Edit a previously sent webhook message."""
         url = (
