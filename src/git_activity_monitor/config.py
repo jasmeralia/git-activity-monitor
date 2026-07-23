@@ -9,7 +9,9 @@ from pydantic import field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
-_VALID_EVENTS: frozenset[str] = frozenset({"stars", "watches", "prs", "issues", "releases", "ghcr"})
+_VALID_EVENTS: frozenset[str] = frozenset(
+    {"stars", "watches", "prs", "issues", "releases", "ghcr", "alerts"}
+)
 
 
 class Settings(BaseSettings):
@@ -24,6 +26,7 @@ class Settings(BaseSettings):
     discord_pinned_message_id: str | None = None
     discord_releases_webhook_url: str | None = None
     discord_releases_pinned_message_id: str | None = None
+    discord_security_webhook_url: str | None = None
 
     poll_interval_seconds: int = 300
     owners: list[str] = []

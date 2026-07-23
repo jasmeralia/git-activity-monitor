@@ -15,6 +15,7 @@ from git_activity_monitor.github_client import GitHubClient
 from git_activity_monitor.monitors import (
     ALL_MONITORS,
     MonitorFn,
+    run_dependabot_alerts,
     run_ghcr,
     run_releases,
     run_releases_pinned,
@@ -103,6 +104,7 @@ def _run_cycle(  # pylint: disable=too-many-arguments,too-many-positional-argume
     discord_client: DiscordClient,
     monitor_fns: list[MonitorFn],
     releases_discord_client: DiscordClient | None = None,
+    alerts_discord_client: DiscordClient | None = None,
 ) -> None:
     effective, public = _effective_repositories(settings, gh_client)
     if not effective:
@@ -166,6 +168,16 @@ def _run_cycle(  # pylint: disable=too-many-arguments,too-many-positional-argume
             releases_discord_client=releases_discord_client,
         )
 
+    if "alerts" in settings.enabled_events:
+        _call(
+            run_dependabot_alerts,
+            effective_settings,
+            state_store,
+            gh_client,
+            discord_client,
+            alerts_discord_client=alerts_discord_client,
+        )
+
     if releases_discord_client and settings.owners:
         _call(
             run_releases_pinned,
@@ -209,10 +221,16 @@ def main() -> None:
         if settings.discord_releases_webhook_url
         else contextlib.nullcontext()
     )
+    alerts_ctx: contextlib.AbstractContextManager[DiscordClient | None] = (
+        DiscordClient(settings.discord_security_webhook_url)
+        if settings.discord_security_webhook_url
+        else contextlib.nullcontext()
+    )
     with (
         GitHubClient(settings.github_token) as gh_client,
         DiscordClient(settings.discord_webhook_url) as discord_client,
         releases_ctx as releases_discord_client,
+        alerts_ctx as alerts_discord_client,
     ):
         while not shutdown:
             cycle_start = time.monotonic()
@@ -223,6 +241,7 @@ def main() -> None:
                 discord_client,
                 monitor_fns,
                 releases_discord_client=releases_discord_client,
+                alerts_discord_client=alerts_discord_client,
             )
             elapsed = time.monotonic() - cycle_start
             sleep_for = int(max(0.0, settings.poll_interval_seconds - elapsed))
