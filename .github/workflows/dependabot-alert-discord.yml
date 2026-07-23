@@ -1,0 +1,33 @@
+name: Dependabot Alert to Discord
+
+on:
+  workflow_call:
+    secrets:
+      discord_webhook_url:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: jasmeralia/git-activity-monitor
+          ref: master
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install git-activity-monitor
+        run: pip install .
+
+      - name: Post alert to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.discord_webhook_url }}
+        run: dependabot-alert-notify
