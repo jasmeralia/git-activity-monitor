@@ -237,6 +237,16 @@ scripts/list-open-alerts.sh [owner]
 
 Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Same repo scope as `list-open-prs.sh`. Repos where Dependabot alerts aren't enabled (dependency graph off, or alerts specifically disabled) are reported separately at the end rather than silently showing zero alerts, since that distinction matters — no alerts and no visibility look identical otherwise.
 
+### `scripts/gelfling-daily-digest.sh`
+
+Runs both `list-open-prs.sh` and `list-open-alerts.sh` and emails the combined output via the local MTA (`sendmail`) when either has anything to report:
+
+```bash
+scripts/gelfling-daily-digest.sh [owner]
+```
+
+Sends nothing on days with zero open PRs and zero open alerts. Deployed as a daily cron job on `gelfling` — see `~/git/rincity-infra/AGENTS.md` ("Git Activity Digest") for the cron schedule and deployment path, since `gh` there is already installed and authenticated as `jasmeralia`.
+
 ---
 
 ## Dependabot Alert Notifications (Reusable Workflow)
