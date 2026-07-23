@@ -78,13 +78,16 @@ class GitHubClient:
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
-    def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+    def _get_response(self, path: str, params: dict[str, Any] | None = None) -> httpx.Response:
         resp = self._client.get(path, params=params)
         remaining = resp.headers.get("X-RateLimit-Remaining")
         if remaining is not None and int(remaining) < _RATE_LIMIT_WARN_THRESHOLD:
             logger.warning("GitHub rate limit low: %s remaining", remaining)
         resp.raise_for_status()
-        return resp.json()
+        return resp
+
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        return self._get_response(path, params=params).json()
 
     def _paginate(
         self, path: str, params: dict[str, Any] | None = None
@@ -97,6 +100,23 @@ class GitHubClient:
                 break
             yield from items
             page += 1
+
+    def _paginate_by_link(
+        self, path: str, params: dict[str, Any] | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """Paginate endpoints that only support Link-header cursors, not ?page=N.
+
+        (e.g. /repos/{owner}/{repo}/dependabot/alerts rejects ?page= with a 400.)
+        """
+        next_url: str | None = path
+        next_params: dict[str, Any] | None = {**(params or {}), "per_page": 100}
+        while next_url:
+            resp = self._get_response(next_url, params=next_params)
+            items: list[dict[str, Any]] = resp.json()
+            yield from items
+            next_link = resp.links.get("next")
+            next_url = next_link["url"] if next_link else None
+            next_params = None
 
     def get_repo_stats(self, owner: str, repo: str) -> dict[str, Any]:
         data = self._get(f"/repos/{owner}/{repo}")
@@ -143,6 +163,15 @@ class GitHubClient:
         versions = self._fetch_package_versions(owner, package_name)
         seen = set(seen_versions)
         return [v for v in versions if v not in seen]
+
+    def get_dependabot_alerts(self, owner: str, repo: str) -> list[dict[str, Any]]:
+        """Return all Dependabot alerts (any state) for a repo, or [] if alerts aren't enabled."""
+        try:
+            return list(self._paginate_by_link(f"/repos/{owner}/{repo}/dependabot/alerts"))
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 403:
+                return []
+            raise
 
     def get_owner_repos(self, owner: str) -> list[str]:
         """Return 'owner/repo' strings for all non-fork, non-archived repos under owner.

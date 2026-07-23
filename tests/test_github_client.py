@@ -365,3 +365,49 @@ def test_get_repo_stats_retries_on_500(gh: GitHubClient, monkeypatch: pytest.Mon
     )
     stats = gh.get_repo_stats("owner", "repo")
     assert stats["stars"] == 1
+
+
+@respx.mock
+def test_get_dependabot_alerts_single_page(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/repos/owner/repo/dependabot/alerts").mock(
+        return_value=httpx.Response(200, json=[{"number": 1, "state": "open"}])
+    )
+    alerts = gh.get_dependabot_alerts("owner", "repo")
+    assert [a["number"] for a in alerts] == [1]
+
+
+@respx.mock
+def test_get_dependabot_alerts_follows_link_header(gh: GitHubClient) -> None:
+    next_url = f"{_API}/repos/owner/repo/dependabot/alerts?per_page=100&after=cursor123"
+    # Both pages hit the same path, so they must be one route's side_effect list —
+    # two separately-registered routes on the same path/query-less match would let
+    # the first (page-1) mock keep matching the second request forever.
+    respx.get(f"{_API}/repos/owner/repo/dependabot/alerts").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                json=[{"number": 1, "state": "open"}],
+                headers={"Link": f'<{next_url}>; rel="next"'},
+            ),
+            httpx.Response(200, json=[{"number": 2, "state": "open"}]),
+        ]
+    )
+    alerts = gh.get_dependabot_alerts("owner", "repo")
+    assert [a["number"] for a in alerts] == [1, 2]
+
+
+@respx.mock
+def test_get_dependabot_alerts_disabled_returns_empty(gh: GitHubClient) -> None:
+    respx.get(f"{_API}/repos/owner/repo/dependabot/alerts").mock(
+        return_value=httpx.Response(403, json={"message": "Dependabot alerts are disabled"})
+    )
+    assert gh.get_dependabot_alerts("owner", "repo") == []
+
+
+@respx.mock
+def test_get_dependabot_alerts_page_param_rejected_is_not_used(gh: GitHubClient) -> None:
+    route = respx.get(f"{_API}/repos/owner/repo/dependabot/alerts").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    gh.get_dependabot_alerts("owner", "repo")
+    assert "page" not in route.calls.last.request.url.params

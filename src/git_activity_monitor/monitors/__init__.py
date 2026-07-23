@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from .dependabot_alerts import run as run_dependabot_alerts
 from .ghcr import run as run_ghcr
 from .issues import run as run_issues
 from .pulls import run as run_pulls
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 MonitorFn = Callable[["Settings", "StateStore", "GitHubClient", "DiscordClient"], None]
 
 # Standard monitors dispatched uniformly by _run_cycle.
-# "releases" and "ghcr" are called explicitly with extra args and are omitted here.
+# "releases", "ghcr", and "alerts" are called explicitly with extra args and are omitted here.
 STANDARD_MONITORS: dict[str, MonitorFn] = {
     "stars": run_stars,
     "watches": run_stars,
@@ -35,6 +36,7 @@ __all__ = [
     "ALL_MONITORS",
     "STANDARD_MONITORS",
     "MonitorFn",
+    "run_dependabot_alerts",
     "run_ghcr",
     "run_releases",
     "run_releases_pinned",

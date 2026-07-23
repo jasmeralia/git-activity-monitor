@@ -17,6 +17,7 @@ GitHub API ──► polling loop ──► Discord webhook
 | New Issues | One batched message per cycle listing all new issues |
 | New Releases | One batched message per cycle listing all new releases |
 | New GHCR versions | One batched message per cycle listing all new container image versions |
+| Dependabot security alerts | One embed per new alert or state change (created/fixed/dismissed/reopened) |
 
 ## Prerequisites
 
@@ -70,7 +71,8 @@ cp .env.example .env
 | `OWNERS` | one of | — | Comma-separated GitHub users/orgs; monitors all their non-fork, non-archived repos |
 | `REPOSITORIES` | one of | — | Comma-separated `owner/repo` pairs to monitor explicitly |
 | `GHCR_PACKAGES` | no | — | Comma-separated `owner/package` pairs for GHCR monitoring |
-| `ENABLED_EVENTS` | no | all | Comma-separated subset of: `stars,watches,prs,issues,releases,ghcr` |
+| `DISCORD_SECURITY_WEBHOOK_URL` | no | — | Second webhook for Dependabot security alerts; falls back to `DISCORD_WEBHOOK_URL` if unset |
+| `ENABLED_EVENTS` | no | all | Comma-separated subset of: `stars,watches,prs,issues,releases,ghcr,alerts` |
 | `POLL_INTERVAL_SECONDS` | no | `300` | How often to poll (seconds; minimum 30) |
 | `STATE_FILE_PATH` | no | `/data/state.json` | Path to the persistence file |
 | `LOG_LEVEL` | no | `INFO` | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
@@ -179,6 +181,14 @@ Detects new GitHub releases. Draft releases are ignored. Release body text is in
 
 Detects new container image versions in the GitHub Container Registry. Requires `GHCR_PACKAGES` to be configured.
 
+### Dependabot Security Alerts
+
+Polls each configured repo's Dependabot alerts (`GET /repos/{owner}/{repo}/dependabot/alerts`) each cycle and diffs against last-seen state, posting one Discord embed per new alert or state change (`created`, `fixed`, `dismissed`, `auto_dismissed`, `reopened`). Color-coded by severity for new/reopened alerts, green for fixed, gray for dismissed (with reason, if given).
+
+Repos where Dependabot alerts aren't enabled (dependency graph off, or alerts specifically disabled) are simply skipped — the GitHub API returns 403 for those, which is treated as "no alerts" rather than an error. Use `scripts/list-open-alerts.sh` to check which repos need alerts enabled.
+
+Note: an earlier version of this feature tried to trigger per-repo via a GitHub Actions workflow on a `dependabot_alert` event. That event exists for repository webhooks but was never a valid Actions `on:` trigger, so it silently never fired — this polling-based approach replaced it entirely, with no per-repo workflow files or secrets required.
+
 ---
 
 ## State File
@@ -246,32 +256,6 @@ scripts/gelfling-daily-digest.sh [owner]
 ```
 
 Sends nothing on days with zero open PRs and zero open alerts. Deployed as a daily cron job on `gelfling` — see `~/git/rincity-infra/AGENTS.md` ("Git Activity Digest") for the cron schedule and deployment path, since `gh` there is already installed and authenticated as `jasmeralia`.
-
----
-
-## Dependabot Alert Notifications (Reusable Workflow)
-
-`dependabot_alert` webhook events (created/dismissed/fixed/reopened) don't show up as PRs, so they're invisible to the event types above — they only fire for public repos (or private repos with GitHub Advanced Security). This repo hosts a [reusable workflow](https://docs.github.com/en/actions/using-workflows/reusing-workflows), `.github/workflows/dependabot-alert-discord.yml`, that other repos call to post a Discord embed whenever one of these fires.
-
-Each subscribing repo needs:
-
-1. A small trigger workflow (`dependabot_alert` is repo-scoped, so this can't be centralized further):
-
-   ```yaml
-   name: Dependabot Alert Notify
-   on:
-     dependabot_alert:
-       types: [created, dismissed, fixed, reopened, auto_dismissed, auto_reopened, reintroduced]
-   jobs:
-     notify:
-       uses: jasmeralia/git-activity-monitor/.github/workflows/dependabot-alert-discord.yml@master
-       secrets:
-         discord_webhook_url: ${{ secrets.DISCORD_SECURITY_WEBHOOK_URL }}
-   ```
-
-2. A `DISCORD_SECURITY_WEBHOOK_URL` repo secret (personal accounts have no org-level secrets to inherit from, so this has to be set per repo: `gh secret set DISCORD_SECURITY_WEBHOOK_URL --repo <owner>/<repo>`).
-
-The embed is built by `dependabot-alert-notify` (`src/git_activity_monitor/dependabot_alert_notify.py`, installed as a console script) — color-coded by severity for new/reopened alerts, green for fixed, gray for dismissed, skipped entirely for `assignees_changed`. It reads the triggering event straight from `$GITHUB_EVENT_PATH` (reusable workflows inherit the caller's original event payload) rather than needing alert data passed in as inputs.
 
 ---
 

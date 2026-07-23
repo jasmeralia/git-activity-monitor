@@ -24,6 +24,19 @@ def test_send_message_returns_id(dc: DiscordClient) -> None:
 
 
 @respx.mock
+def test_send_embed_posts_embeds_list(dc: DiscordClient) -> None:
+    route = respx.post(_WEBHOOK).mock(return_value=httpx.Response(200, json={"id": "42"}))
+    embed = {"title": "New Dependabot Alert", "color": 0xB30000}
+    msg = dc.send_embed(embed)
+    assert msg["id"] == "42"
+    import json as _json
+
+    payload = _json.loads(route.calls.last.request.read())
+    assert payload["embeds"] == [embed]
+    assert payload["allowed_mentions"] == {"parse": []}
+
+
+@respx.mock
 def test_send_message_uses_wait_true(dc: DiscordClient) -> None:
     route = respx.post(_WEBHOOK).mock(return_value=httpx.Response(200, json={"id": "1"}))
     dc.send_message("test")

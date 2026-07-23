@@ -113,6 +113,18 @@ class StateStore:
             self._data["ghcr"] = {}
         self._data["ghcr"][package] = {"seen_versions": versions}
 
+    def get_dependabot_alert_states(self, repo: str) -> dict[str, str]:
+        """Map of alert number (str) -> last-notified state, for a repo."""
+        return dict(self._data.get("dependabot_alerts", {}).get(repo, {}))
+
+    def is_dependabot_alerts_initialized(self, repo: str) -> bool:
+        return repo in self._data.get("dependabot_alerts", {})
+
+    def set_dependabot_alert_states(self, repo: str, states: dict[str, str]) -> None:
+        if "dependabot_alerts" not in self._data:
+            self._data["dependabot_alerts"] = {}
+        self._data["dependabot_alerts"][repo] = states
+
     @property
     def pinned_message_ids(self) -> list[str]:
         ids = self._data.get("pinned_message_ids")
