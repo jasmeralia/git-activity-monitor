@@ -23,8 +23,13 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RECIPIENT="morgan@windsofstorm.net"
 
+# truenas-typhoon has no real external dependencies to scan (its only compose
+# files are an example and inert backups, see jasmeralia/truenas-typhoon#6) --
+# Dependabot alerts stay disabled by design, so don't flag it in the digest.
+SKIP_REPOS="jasmeralia/truenas-typhoon"
+
 prs_output="$("$SCRIPT_DIR/list-open-prs.sh" "$@")"
-alerts_output="$("$SCRIPT_DIR/list-open-alerts.sh" "$@")"
+alerts_output="$(SKIP_REPOS="$SKIP_REPOS" "$SCRIPT_DIR/list-open-alerts.sh" "$@")"
 
 pr_count="$(grep -oE '^[0-9]+ open PR' <<<"$prs_output" | grep -oE '^[0-9]+' || true)"
 alert_count="$(grep -oE '^[0-9]+ open alert' <<<"$alerts_output" | grep -oE '^[0-9]+' || true)"
