@@ -7,6 +7,11 @@
 # non-fork, non-archived repos owned directly by that owner are considered.
 # Repos where Dependabot alerts (or dependency graph) aren't enabled are
 # reported separately rather than silently showing zero alerts.
+#
+# Set SKIP_REPOS to a comma- or whitespace-separated list of nameWithOwner
+# values (e.g. "owner/repo-a,owner/repo-b") to exclude repos entirely --
+# for cases where Dependabot alerts are intentionally left disabled and
+# the "not enabled" callout would just be noise.
 set -euo pipefail
 
 for bin in gh jq; do
@@ -25,6 +30,10 @@ echo "Owner: $OWNER"
 echo
 
 repos="$(gh repo list "$OWNER" --source --no-archived --limit 1000 --json nameWithOwner -q '.[].nameWithOwner' | sort)"
+
+if [[ -n "${SKIP_REPOS:-}" ]]; then
+  repos="$(comm -23 <(echo "$repos") <(tr ',' '\n' <<<"$SKIP_REPOS" | tr -s '[:space:]' '\n' | sed '/^$/d' | sort))"
+fi
 
 if [[ -z "$repos" ]]; then
   echo "No repos found for $OWNER."
