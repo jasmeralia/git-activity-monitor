@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings>=2.3",
     "httpx>=0.27",
     "tenacity>=8.3",
+    "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +28,7 @@ dev = [
 
 [project.scripts]
 git-activity-monitor = "git_activity_monitor.main:main"
+git-activity-digest = "git_activity_monitor.digest.cli:main"
 
 # Source files live directly in src/ (not src/git_activity_monitor/).
 # package-dir maps the package name to the src/ root.
@@ -34,7 +36,7 @@ git-activity-monitor = "git_activity_monitor.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-git_activity_monitor = ["py.typed"]
+git_activity_monitor = ["py.typed", "digest/templates/*.html"]
 
 [tool.ruff]
 line-length = 100
