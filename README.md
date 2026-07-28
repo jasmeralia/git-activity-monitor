@@ -229,19 +229,19 @@ The script exits non-zero if any PR needs manual review, so it's safe to use in 
 
 ### `git-activity-digest` (console script)
 
-Collects open PRs, PRs merged in the last 24h, and open Dependabot alerts across all of an owner's repos and emails a single HTML digest (with a plain-text fallback part) via the local MTA (`sendmail`):
+Collects open PRs, PRs merged in the last 24h, and open Dependabot alerts across all of an owner's repos and emails a single HTML digest (with a plain-text fallback part) via Gmail SMTP:
 
 ```bash
 git-activity-digest [owner] [--recipient EMAIL] [--merged-window-hours N] [--alert-skip-repos LIST] [--dry-run] [--html-out PATH]
 ```
 
-Requires the [`gh` CLI](https://cli.github.com/) (authenticated) — no `GITHUB_TOKEN`/SMTP credentials needed, since it shells out to `gh` for data and to `/usr/sbin/sendmail -t` for delivery. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered.
+Requires the [`gh` CLI](https://cli.github.com/) (authenticated) for data — no `GITHUB_TOKEN` needed. Mail delivery relays through Gmail SMTP (`smtp.gmail.com:587`, STARTTLS) rather than the local MTA, using credentials from `~/.env` (`GMAIL_SMTP_HOST`/`GMAIL_SMTP_PORT`/`GMAIL_SMTP_USER`/`GMAIL_SMTP_PASS`/`GMAIL_SMTP_FROM`) — see rincity-infra's AGENTS.md ("Odoo Task Deadline Digest") for where those live; this switched from local `sendmail` direct-to-MX delivery because Gmail was flagging mail from the bare EC2 hostname identity as spam. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered.
 
 The email has a summary stat row up top (merged / open PR / open alert counts), followed by a section per category, each grouped by repo; Dependabot alerts are sorted by severity within a repo. Repos with Dependabot alerts disabled (dependency graph off, or alerts specifically disabled) are listed separately rather than silently showing zero alerts — unless excluded via `--alert-skip-repos` (comma/whitespace-separated `owner/repo` list, defaults to the `SKIP_REPOS` env var) for repos where alerts are intentionally left off by design and the "not enabled" callout would just be noise. Skipped repos are still scanned normally for open/merged PRs. **Sends nothing at all** on a day with zero merged PRs, zero open PRs, and zero open alerts.
 
 `--dry-run` prints the plain-text digest to stdout instead of sending mail (handy to check what's currently open, or which repos need Dependabot alerts enabled, without waiting for the next scheduled send). `--html-out PATH` additionally writes the rendered HTML body to a file, whether or not the email is actually sent.
 
-Implementation lives under `src/git_activity_monitor/digest/` (`gh_cli.py` for the `gh` subprocess calls, `collect.py` to aggregate across repos, `render.py`/`templates/digest_email.html` for the Jinja2-rendered email, `mailer.py` for `sendmail` delivery, `cli.py` for the entry point) — replaces the older `scripts/list-open-prs.sh` + `scripts/list-open-alerts.sh` + `scripts/gelfling-daily-digest.sh` trio of plain-text bash scripts with one Python codepath.
+Implementation lives under `src/git_activity_monitor/digest/` (`gh_cli.py` for the `gh` subprocess calls, `collect.py` to aggregate across repos, `render.py`/`templates/digest_email.html` for the Jinja2-rendered email, `mailer.py` for Gmail SMTP delivery, `cli.py` for the entry point) — replaces the older `scripts/list-open-prs.sh` + `scripts/list-open-alerts.sh` + `scripts/gelfling-daily-digest.sh` trio of plain-text bash scripts with one Python codepath.
 
 ### `scripts/gelfling-daily-digest.sh`
 
