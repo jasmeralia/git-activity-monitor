@@ -114,6 +114,33 @@ def test_collect_digest_tracks_disabled_alert_repos(
 @patch("git_activity_monitor.digest.collect.gh_cli.list_merged_prs_since")
 @patch("git_activity_monitor.digest.collect.gh_cli.list_open_prs")
 @patch("git_activity_monitor.digest.collect.gh_cli.list_repos")
+def test_collect_digest_alert_skip_repos_excludes_entirely(
+    mock_list_repos, mock_open_prs, mock_merged_prs, mock_alerts
+) -> None:
+    # truenas-typhoon-style case: alerts are disabled by design, so skipping
+    # it entirely should mean it never shows up as "disabled" noise either,
+    # while still being scanned normally for open/merged PRs.
+    mock_list_repos.return_value = ["jasmeralia/truenas-typhoon", "jasmeralia/ok"]
+    mock_open_prs.return_value = [_open_pr(1)]
+    mock_merged_prs.return_value = []
+    # list_open_alerts must never be called for the skipped repo at all --
+    # if the skip logic didn't short-circuit, this would raise for it too.
+    mock_alerts.return_value = []
+
+    data = collect_digest(
+        "jasmeralia", now=NOW, alert_skip_repos=frozenset({"jasmeralia/truenas-typhoon"})
+    )
+
+    assert data.alerts_disabled_repos == []
+    mock_alerts.assert_called_once_with("jasmeralia/ok")
+    # PRs are unaffected by the alert skip list.
+    assert data.open_pr_count == 2
+
+
+@patch("git_activity_monitor.digest.collect.gh_cli.list_open_alerts")
+@patch("git_activity_monitor.digest.collect.gh_cli.list_merged_prs_since")
+@patch("git_activity_monitor.digest.collect.gh_cli.list_open_prs")
+@patch("git_activity_monitor.digest.collect.gh_cli.list_repos")
 def test_collect_digest_one_repo_failure_does_not_abort_others(
     mock_list_repos, mock_open_prs, mock_merged_prs, mock_alerts
 ) -> None:

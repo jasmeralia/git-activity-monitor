@@ -26,6 +26,7 @@ def collect_digest(
     owner: str,
     now: dt.datetime | None = None,
     merged_window_hours: int = 24,
+    alert_skip_repos: frozenset[str] = frozenset(),
 ) -> DigestData:
     now = now or dt.datetime.now(dt.UTC)
     since = now - dt.timedelta(hours=merged_window_hours)
@@ -73,25 +74,26 @@ def collect_digest(
         except Exception:  # pylint: disable=broad-exception-caught
             logger.exception("Failed to list merged PRs for %s; skipping", repo)
 
-        try:
-            for raw in gh_cli.list_open_alerts(repo):
-                dependency = raw.get("dependency", {}).get("package", {})
-                data.alerts.append(
-                    Alert(
-                        repo=repo,
-                        number=raw["number"],
-                        severity=_severity(raw),
-                        ecosystem=str(dependency.get("ecosystem", "")),
-                        package=str(dependency.get("name", "")),
-                        advisory_id=_advisory_id(raw),
-                        summary=str(raw.get("security_advisory", {}).get("summary", "")),
-                        url=raw["html_url"],
-                        created_at=raw["created_at"][:10],
+        if repo not in alert_skip_repos:
+            try:
+                for raw in gh_cli.list_open_alerts(repo):
+                    dependency = raw.get("dependency", {}).get("package", {})
+                    data.alerts.append(
+                        Alert(
+                            repo=repo,
+                            number=raw["number"],
+                            severity=_severity(raw),
+                            ecosystem=str(dependency.get("ecosystem", "")),
+                            package=str(dependency.get("name", "")),
+                            advisory_id=_advisory_id(raw),
+                            summary=str(raw.get("security_advisory", {}).get("summary", "")),
+                            url=raw["html_url"],
+                            created_at=raw["created_at"][:10],
+                        )
                     )
-                )
-        except gh_cli.AlertsDisabledError:
-            data.alerts_disabled_repos.append(repo)
-        except Exception:  # pylint: disable=broad-exception-caught
-            logger.exception("Failed to list Dependabot alerts for %s; skipping", repo)
+            except gh_cli.AlertsDisabledError:
+                data.alerts_disabled_repos.append(repo)
+            except Exception:  # pylint: disable=broad-exception-caught
+                logger.exception("Failed to list Dependabot alerts for %s; skipping", repo)
 
     return data

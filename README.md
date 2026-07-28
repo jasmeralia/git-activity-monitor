@@ -232,12 +232,12 @@ The script exits non-zero if any PR needs manual review, so it's safe to use in 
 Collects open PRs, PRs merged in the last 24h, and open Dependabot alerts across all of an owner's repos and emails a single HTML digest (with a plain-text fallback part) via the local MTA (`sendmail`):
 
 ```bash
-git-activity-digest [owner] [--recipient EMAIL] [--merged-window-hours N] [--dry-run] [--html-out PATH]
+git-activity-digest [owner] [--recipient EMAIL] [--merged-window-hours N] [--alert-skip-repos LIST] [--dry-run] [--html-out PATH]
 ```
 
 Requires the [`gh` CLI](https://cli.github.com/) (authenticated) — no `GITHUB_TOKEN`/SMTP credentials needed, since it shells out to `gh` for data and to `/usr/sbin/sendmail -t` for delivery. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered.
 
-The email has a summary stat row up top (merged / open PR / open alert counts), followed by a section per category, each grouped by repo; Dependabot alerts are sorted by severity within a repo. Repos with Dependabot alerts disabled (dependency graph off, or alerts specifically disabled) are listed separately rather than silently showing zero alerts. **Sends nothing at all** on a day with zero merged PRs, zero open PRs, and zero open alerts.
+The email has a summary stat row up top (merged / open PR / open alert counts), followed by a section per category, each grouped by repo; Dependabot alerts are sorted by severity within a repo. Repos with Dependabot alerts disabled (dependency graph off, or alerts specifically disabled) are listed separately rather than silently showing zero alerts — unless excluded via `--alert-skip-repos` (comma/whitespace-separated `owner/repo` list, defaults to the `SKIP_REPOS` env var) for repos where alerts are intentionally left off by design and the "not enabled" callout would just be noise. Skipped repos are still scanned normally for open/merged PRs. **Sends nothing at all** on a day with zero merged PRs, zero open PRs, and zero open alerts.
 
 `--dry-run` prints the plain-text digest to stdout instead of sending mail (handy to check what's currently open, or which repos need Dependabot alerts enabled, without waiting for the next scheduled send). `--html-out PATH` additionally writes the rendered HTML body to a file, whether or not the email is actually sent.
 

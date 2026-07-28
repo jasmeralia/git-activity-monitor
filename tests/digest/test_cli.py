@@ -105,3 +105,30 @@ def test_main_defaults_owner_to_authenticated_user(
     mock_get_user.assert_called_once()
     mock_collect.assert_called_once()
     assert mock_collect.call_args[0][0] == "jasmeralia"
+
+
+@patch("git_activity_monitor.digest.cli.mailer.send_digest_email")
+@patch("git_activity_monitor.digest.cli.collect_digest")
+def test_main_alert_skip_repos_flag(mock_collect: MagicMock, mock_send: MagicMock) -> None:
+    mock_collect.return_value = DigestData(owner="jasmeralia", generated_at=NOW, repos_checked=3)
+
+    main(["jasmeralia", "--alert-skip-repos", "jasmeralia/a, jasmeralia/b"])
+
+    assert mock_collect.call_args.kwargs["alert_skip_repos"] == frozenset(
+        {"jasmeralia/a", "jasmeralia/b"}
+    )
+
+
+@patch("git_activity_monitor.digest.cli.mailer.send_digest_email")
+@patch("git_activity_monitor.digest.cli.collect_digest")
+def test_main_alert_skip_repos_defaults_to_skip_repos_env_var(
+    mock_collect: MagicMock, mock_send: MagicMock, monkeypatch
+) -> None:
+    monkeypatch.setenv("SKIP_REPOS", "jasmeralia/truenas-typhoon")
+    mock_collect.return_value = DigestData(owner="jasmeralia", generated_at=NOW, repos_checked=3)
+
+    main(["jasmeralia"])
+
+    assert mock_collect.call_args.kwargs["alert_skip_repos"] == frozenset(
+        {"jasmeralia/truenas-typhoon"}
+    )

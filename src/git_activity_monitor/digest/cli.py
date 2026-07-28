@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
+import re
 from pathlib import Path
 
 from git_activity_monitor.digest import gh_cli, mailer, render
@@ -18,6 +20,12 @@ from git_activity_monitor.digest.collect import collect_digest
 logger = logging.getLogger(__name__)
 
 DEFAULT_RECIPIENT = "morgan@windsofstorm.net"
+
+
+def _parse_repo_list(raw: str) -> frozenset[str]:
+    """Comma- or whitespace-separated 'owner/repo' list, matching the
+    SKIP_REPOS convention from the old list-open-alerts.sh script."""
+    return frozenset(item for item in re.split(r"[,\s]+", raw.strip()) if item)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -50,6 +58,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Also write the rendered HTML body to this path",
     )
+    parser.add_argument(
+        "--alert-skip-repos",
+        default=os.environ.get("SKIP_REPOS", ""),
+        help=(
+            "Comma/whitespace-separated 'owner/repo' list to exclude from "
+            "Dependabot alert checks entirely (e.g. repos where alerts are "
+            "intentionally left disabled). Defaults to the SKIP_REPOS env var."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -58,7 +75,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     owner = args.owner or gh_cli.get_authenticated_user()
-    data = collect_digest(owner, merged_window_hours=args.merged_window_hours)
+    data = collect_digest(
+        owner,
+        merged_window_hours=args.merged_window_hours,
+        alert_skip_repos=_parse_repo_list(args.alert_skip_repos),
+    )
 
     if args.html_out is not None:
         args.html_out.write_text(render.build_html(data), encoding="utf-8")
