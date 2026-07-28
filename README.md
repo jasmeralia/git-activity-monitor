@@ -185,7 +185,7 @@ Detects new container image versions in the GitHub Container Registry. Requires 
 
 Polls each configured repo's Dependabot alerts (`GET /repos/{owner}/{repo}/dependabot/alerts`) each cycle and diffs against last-seen state, posting one Discord embed per new alert or state change (`created`, `fixed`, `dismissed`, `auto_dismissed`, `reopened`). Color-coded by severity for new/reopened alerts, green for fixed, gray for dismissed (with reason, if given).
 
-Repos where Dependabot alerts aren't enabled (dependency graph off, or alerts specifically disabled) are simply skipped — the GitHub API returns 403 for those, which is treated as "no alerts" rather than an error. Use `scripts/list-open-alerts.sh` to check which repos need alerts enabled.
+Repos where Dependabot alerts aren't enabled (dependency graph off, or alerts specifically disabled) are simply skipped — the GitHub API returns 403 for those, which is treated as "no alerts" rather than an error. Run `git-activity-digest <owner> --dry-run` to check which repos need alerts enabled (see "Maintenance Scripts" below) — it lists them separately rather than silently showing zero alerts.
 
 Note: an earlier version of this feature tried to trigger per-repo via a GitHub Actions workflow on a `dependabot_alert` event. That event exists for repository webhooks but was never a valid Actions `on:` trigger, so it silently never fired — this polling-based approach replaced it entirely, with no per-repo workflow files or secrets required.
 
@@ -227,35 +227,31 @@ Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Each 
 
 The script exits non-zero if any PR needs manual review, so it's safe to use in a monitoring/cron context.
 
-### `scripts/list-open-prs.sh`
+### `git-activity-digest` (console script)
 
-Lists every open PR across all of an owner's repos, with the author and a direct link:
-
-```bash
-scripts/list-open-prs.sh [owner]
-```
-
-Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered. Output is grouped by repo, one line per PR (`#number by author, assigned: ..., opened YYYY-MM-DD: title`, or `assigned: unassigned` when nobody is assigned) followed by its URL, with a summary count at the end.
-
-### `scripts/list-open-alerts.sh`
-
-Lists every open Dependabot security alert across all of an owner's repos, with severity, package, advisory ID, and a direct link:
+Collects open PRs, PRs merged in the last 24h, and open Dependabot alerts across all of an owner's repos and emails a single HTML digest (with a plain-text fallback part) via the local MTA (`sendmail`):
 
 ```bash
-scripts/list-open-alerts.sh [owner]
+git-activity-digest [owner] [--recipient EMAIL] [--merged-window-hours N] [--alert-skip-repos LIST] [--dry-run] [--html-out PATH]
 ```
 
-Requires the [`gh` CLI](https://cli.github.com/) (authenticated) and `jq`. Same repo scope as `list-open-prs.sh`. Repos where Dependabot alerts aren't enabled (dependency graph off, or alerts specifically disabled) are reported separately at the end rather than silently showing zero alerts, since that distinction matters — no alerts and no visibility look identical otherwise.
+Requires the [`gh` CLI](https://cli.github.com/) (authenticated) — no `GITHUB_TOKEN`/SMTP credentials needed, since it shells out to `gh` for data and to `/usr/sbin/sendmail -t` for delivery. If `owner` is omitted, defaults to the authenticated `gh` user. Only non-fork, non-archived repos owned directly by that owner are considered.
+
+The email has a summary stat row up top (merged / open PR / open alert counts), followed by a section per category, each grouped by repo; Dependabot alerts are sorted by severity within a repo. Repos with Dependabot alerts disabled (dependency graph off, or alerts specifically disabled) are listed separately rather than silently showing zero alerts — unless excluded via `--alert-skip-repos` (comma/whitespace-separated `owner/repo` list, defaults to the `SKIP_REPOS` env var) for repos where alerts are intentionally left off by design and the "not enabled" callout would just be noise. Skipped repos are still scanned normally for open/merged PRs. **Sends nothing at all** on a day with zero merged PRs, zero open PRs, and zero open alerts.
+
+`--dry-run` prints the plain-text digest to stdout instead of sending mail (handy to check what's currently open, or which repos need Dependabot alerts enabled, without waiting for the next scheduled send). `--html-out PATH` additionally writes the rendered HTML body to a file, whether or not the email is actually sent.
+
+Implementation lives under `src/git_activity_monitor/digest/` (`gh_cli.py` for the `gh` subprocess calls, `collect.py` to aggregate across repos, `render.py`/`templates/digest_email.html` for the Jinja2-rendered email, `mailer.py` for `sendmail` delivery, `cli.py` for the entry point) — replaces the older `scripts/list-open-prs.sh` + `scripts/list-open-alerts.sh` + `scripts/gelfling-daily-digest.sh` trio of plain-text bash scripts with one Python codepath.
 
 ### `scripts/gelfling-daily-digest.sh`
 
-Runs both `list-open-prs.sh` and `list-open-alerts.sh` and emails the combined output via the local MTA (`sendmail`) when either has anything to report:
+Thin wrapper that `exec`s `.venv/bin/git-activity-digest "$@"`. Kept under this name/path so the existing cron entry and the "resend today's digest" instructions in `~/git/rincity-infra/AGENTS.md` ("Git Activity Digest") keep working unchanged:
 
 ```bash
 scripts/gelfling-daily-digest.sh [owner]
 ```
 
-Sends nothing on days with zero open PRs and zero open alerts. Deployed as a daily cron job on `gelfling` — see `~/git/rincity-infra/AGENTS.md` ("Git Activity Digest") for the cron schedule and deployment path, since `gh` there is already installed and authenticated as `jasmeralia`.
+Deployed as a daily cron job on `gelfling` — see that AGENTS.md section for the cron schedule and deployment path, since `gh` there is already installed and authenticated as `jasmeralia`.
 
 ---
 

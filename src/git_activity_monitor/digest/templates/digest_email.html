@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>[{{ owner }}] Git Activity Digest — {{ generated_at.strftime("%Y-%m-%d") }}</title>
+  <style>
+    body {
+      background: #F1F3F4 !important;
+      color: #202124 !important;
+      margin: 0; padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+    .stat-row { margin-bottom: 16px; }
+    .stat {
+      display: inline-block;
+      background: #FFFFFF !important;
+      border: 1px solid #E0E0E0 !important;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 0 8px 8px 0;
+      text-align: center;
+      min-width: 92px;
+    }
+    .stat-count { display: block; font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .stat-label { display: block; font-size: 11px; color: #5F6368 !important; margin-top: 2px; }
+    .stat-merged .stat-count { color: #1e7e34 !important; }
+    .stat-open   .stat-count { color: #1a73e8 !important; }
+    .stat-alerts .stat-count { color: #d32f2f !important; }
+    .stat-alerts.zero .stat-count { color: #202124 !important; }
+
+    .repo-group { margin-bottom: 18px; }
+    .repo-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #5F6368 !important;
+      margin: 0 0 6px 2px;
+    }
+    .card {
+      background: #FFFFFF !important;
+      border: 1px solid #E0E0E0 !important;
+      border-left: 3px solid #DADCE0 !important;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .card.sev-critical { border-left-color: #B71C1C !important; }
+    .card.sev-high     { border-left-color: #D32F2F !important; }
+    .card.sev-moderate { border-left-color: #F29900 !important; }
+    .card.sev-low       { border-left-color: #9AA0A6 !important; }
+    .card.merged        { border-left-color: #1e7e34 !important; }
+
+    a { color: #1a73e8 !important; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { font-size: 12px; color: #5F6368 !important; margin-top: 2px; }
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: #FFFFFF !important;
+    }
+    .badge.sev-critical { background: #B71C1C !important; }
+    .badge.sev-high     { background: #D32F2F !important; }
+    .badge.sev-moderate { background: #F29900 !important; }
+    .badge.sev-low       { background: #9AA0A6 !important; }
+
+    .disabled-note {
+      font-size: 12px;
+      color: #5F6368 !important;
+      background: #F1F3F4 !important;
+      border: 1px solid #E0E0E0 !important;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-top: 8px;
+    }
+    .empty-note { font-size: 13px; color: #5F6368 !important; margin-bottom: 18px; }
+    .footer { margin-top: 20px; font-size: 11px; color: #9AA0A6 !important; text-align: center; }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #202124 !important; color: #E8EAED !important; }
+      .container { background: #202124 !important; }
+      h2, h3 { color: #E8EAED !important; }
+      .stat { background: #2A2C2F !important; border-color: #3C4043 !important; }
+      .stat-label { color: #9AA0A6 !important; }
+      .stat-merged .stat-count { color: #81C995 !important; }
+      .stat-open   .stat-count { color: #8AB4F8 !important; }
+      .stat-alerts .stat-count { color: #FF6B6B !important; }
+      .stat-alerts.zero .stat-count { color: #E8EAED !important; }
+      .repo-name { color: #9AA0A6 !important; }
+      .card { background: #2A2C2F !important; border-color: #3C4043 !important; color: #E8EAED !important; }
+      a { color: #8AB4F8 !important; }
+      .meta { color: #9AA0A6 !important; }
+      .disabled-note { background: #2A2C2F !important; border-color: #3C4043 !important; color: #9AA0A6 !important; }
+      .empty-note { color: #9AA0A6 !important; }
+      .footer { color: #9AA0A6 !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h2>Git Activity Digest: {{ owner }}</h2>
+  <div class="meta" style="margin-top:-8px;margin-bottom:16px;">
+    {{ generated_at.strftime("%Y-%m-%d %H:%M UTC") }} · {{ repos_checked }} repo{{ 's' if repos_checked != 1 else '' }} checked
+  </div>
+
+  <div class="stat-row">
+    <div class="stat stat-merged">
+      <span class="stat-count">{{ merged_pr_count }}</span>
+      <span class="stat-label">Merged ({{ merged_window_hours }}h)</span>
+    </div>
+    <div class="stat stat-open">
+      <span class="stat-count">{{ open_pr_count }}</span>
+      <span class="stat-label">Open PRs</span>
+    </div>
+    <div class="stat stat-alerts{{ ' zero' if alert_count == 0 else '' }}">
+      <span class="stat-count">{{ alert_count }}</span>
+      <span class="stat-label">Open Alerts</span>
+    </div>
+  </div>
+
+  {% if merged_prs %}
+  <h3>🟢 Merged in the last {{ merged_window_hours }}h ({{ merged_prs|length }})</h3>
+  {% for pr in merged_prs %}
+  <div class="card merged">
+    <div><strong>{{ pr.repo }}</strong> <span class="meta">#{{ pr.number }}</span></div>
+    <div><a href="{{ pr.url }}">{{ pr.title }}</a></div>
+    <div class="meta">by {{ pr.author }} · merged {{ pr.merged_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if open_prs_by_repo %}
+  <h3>🔵 Open Pull Requests ({{ open_pr_count }})</h3>
+  {% for repo, prs in open_prs_by_repo %}
+  <div class="repo-group">
+    <div class="repo-name">{{ repo }} ({{ prs|length }})</div>
+    {% for pr in prs %}
+    <div class="card">
+      <div><a href="{{ pr.url }}">#{{ pr.number }} {{ pr.title }}</a></div>
+      <div class="meta">by {{ pr.author }} · assigned: {{ pr.assignees }} · opened {{ pr.created_at }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if alerts_by_repo %}
+  <h3>🔴 Open Security Alerts ({{ alert_count }})</h3>
+  {% for repo, alerts in alerts_by_repo %}
+  <div class="repo-group">
+    <div class="repo-name">{{ repo }} ({{ alerts|length }})</div>
+    {% for a in alerts %}
+    <div class="card sev-{{ a.severity }}">
+      <div>
+        <span class="badge sev-{{ a.severity }}">{{ a.severity }}</span>
+        <a href="{{ a.url }}">{{ a.package }}</a>
+        <span class="meta">({{ a.ecosystem }})</span>
+      </div>
+      <div class="meta">{{ a.summary }}</div>
+      <div class="meta">{{ a.advisory_id }} · opened {{ a.created_at }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if alerts_disabled_repos %}
+  <div class="disabled-note">
+    <strong>Dependabot alerts not enabled</strong> (no visibility) on:
+    {{ alerts_disabled_repos|join(', ') }}
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    git-activity-monitor · <a href="https://github.com/jasmeralia/git-activity-monitor">jasmeralia/git-activity-monitor</a>
+  </div>
+
+</div>
+</body>
+</html>
