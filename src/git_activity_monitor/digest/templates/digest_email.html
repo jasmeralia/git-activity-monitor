@@ -56,6 +56,7 @@
     a { color: #1a73e8 !important; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .meta { font-size: 12px; color: #5F6368 !important; margin-top: 2px; }
+    .identity-mismatch { color: #B45309 !important; }
     .badge {
       display: inline-block;
       font-size: 10px;
@@ -97,6 +98,7 @@
       .card { background: #2A2C2F !important; border-color: #3C4043 !important; color: #E8EAED !important; }
       a { color: #8AB4F8 !important; }
       .meta { color: #9AA0A6 !important; }
+      .identity-mismatch { color: #FBBF24 !important; }
       .disabled-note { background: #2A2C2F !important; border-color: #3C4043 !important; color: #9AA0A6 !important; }
       .empty-note { color: #9AA0A6 !important; }
       .footer { color: #9AA0A6 !important; }
@@ -105,6 +107,9 @@
 </head>
 <body>
 <div class="container">
+  {% macro identity(login) -%}
+    {% if login != owner %}<span class="identity-mismatch">{{ login }}</span>{% else %}{{ login }}{% endif %}
+  {%- endmacro %}
 
   <h2>Git Activity Digest: {{ owner }}</h2>
   <div class="meta" style="margin-top:-8px;margin-bottom:16px;">
@@ -132,7 +137,7 @@
   <div class="card merged">
     <div><strong>{{ pr.repo }}</strong> <span class="meta">#{{ pr.number }}</span></div>
     <div><a href="{{ pr.url }}">{{ pr.title }}</a></div>
-    <div class="meta">created by {{ pr.author }} · merged by {{ pr.merged_by }} · merged {{ pr.merged_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+    <div class="meta">created by {{ identity(pr.author) }} · merged by {{ identity(pr.merged_by) }} · merged {{ pr.merged_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
   </div>
   {% endfor %}
   {% endif %}
@@ -145,7 +150,7 @@
     {% for pr in prs %}
     <div class="card">
       <div><a href="{{ pr.url }}">#{{ pr.number }} {{ pr.title }}</a></div>
-      <div class="meta">by {{ pr.author }} · assigned: {{ pr.assignees }} · opened {{ pr.created_at }}</div>
+      <div class="meta">by {{ identity(pr.author) }} · assigned: {{ pr.assignees }} · opened {{ pr.created_at }}</div>
     </div>
     {% endfor %}
   </div>

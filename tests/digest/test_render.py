@@ -28,7 +28,7 @@ def test_build_html_includes_merged_section() -> None:
             repo="jasmeralia/foo",
             number=5,
             title="Fix thing",
-            author="alice",
+            author="jasmeralia",
             merged_by="bob",
             url="https://gh/pr/5",
             merged_at=NOW - dt.timedelta(hours=1),
@@ -39,7 +39,9 @@ def test_build_html_includes_merged_section() -> None:
     assert "jasmeralia/foo" in html
     assert "Fix thing" in html
     assert "https://gh/pr/5" in html
-    assert "created by alice · merged by bob" in html
+    assert "created by jasmeralia" in html
+    assert '<span class="identity-mismatch">bob</span>' in html
+    assert '<span class="identity-mismatch">jasmeralia</span>' not in html
 
 
 def test_build_html_groups_open_prs_by_repo() -> None:
@@ -68,6 +70,7 @@ def test_build_html_groups_open_prs_by_repo() -> None:
     assert "jasmeralia/foo (2)" in html
     assert "#1 A" in html
     assert "#2 B" in html
+    assert html.count('class="identity-mismatch"') == 2
 
 
 def test_build_html_sorts_alerts_by_severity_and_shows_disabled_note() -> None:
