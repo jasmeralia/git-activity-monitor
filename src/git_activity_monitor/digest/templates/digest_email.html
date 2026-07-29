@@ -110,6 +110,9 @@
   {% macro identity(login) -%}
     {% if login != owner %}<span class="identity-mismatch">{{ login }}</span>{% else %}{{ login }}{% endif %}
   {%- endmacro %}
+  {% macro repo_link(repo) -%}
+    <a href="https://github.com/{{ repo }}">{{ repo }}</a>
+  {%- endmacro %}
 
   <h2>Git Activity Digest: {{ owner }}</h2>
   <div class="meta" style="margin-top:-8px;margin-bottom:16px;">
@@ -135,7 +138,7 @@
   <h3>🟢 Merged in the last {{ merged_window_hours }}h ({{ merged_prs|length }})</h3>
   {% for pr in merged_prs %}
   <div class="card merged">
-    <div><strong>{{ pr.repo }}</strong> <span class="meta">#{{ pr.number }}</span></div>
+    <div><strong>{{ repo_link(pr.repo) }}</strong> <span class="meta">#{{ pr.number }}</span></div>
     <div><a href="{{ pr.url }}">{{ pr.title }}</a></div>
     <div class="meta">created by {{ identity(pr.author) }} · merged by {{ identity(pr.merged_by) }} · merged {{ pr.merged_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
   </div>
@@ -146,7 +149,7 @@
   <h3>🔵 Open Pull Requests ({{ open_pr_count }})</h3>
   {% for repo, prs in open_prs_by_repo %}
   <div class="repo-group">
-    <div class="repo-name">{{ repo }} ({{ prs|length }})</div>
+    <div class="repo-name">{{ repo_link(repo) }} ({{ prs|length }})</div>
     {% for pr in prs %}
     <div class="card">
       <div><a href="{{ pr.url }}">#{{ pr.number }} {{ pr.title }}</a></div>
@@ -161,7 +164,7 @@
   <h3>🔴 Open Security Alerts ({{ alert_count }})</h3>
   {% for repo, alerts in alerts_by_repo %}
   <div class="repo-group">
-    <div class="repo-name">{{ repo }} ({{ alerts|length }})</div>
+    <div class="repo-name">{{ repo_link(repo) }} ({{ alerts|length }})</div>
     {% for a in alerts %}
     <div class="card sev-{{ a.severity }}">
       <div>
@@ -180,7 +183,7 @@
   {% if alerts_disabled_repos %}
   <div class="disabled-note">
     <strong>Dependabot alerts not enabled</strong> (no visibility) on:
-    {{ alerts_disabled_repos|join(', ') }}
+    {% for repo in alerts_disabled_repos %}{{ repo_link(repo) }}{{ ', ' if not loop.last else '' }}{% endfor %}
   </div>
   {% endif %}
 
