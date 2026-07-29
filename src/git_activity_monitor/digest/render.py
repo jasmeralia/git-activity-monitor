@@ -48,7 +48,8 @@ def build_text(data: DigestData) -> str:
         lines.append(f"=== Merged in the last {data.merged_window_hours}h ===")
         for merged_pr in data.merged_prs_sorted():
             lines.append(
-                f"{merged_pr.repo} #{merged_pr.number} by {merged_pr.author}: {merged_pr.title}"
+                f"{merged_pr.repo} #{merged_pr.number} created by {merged_pr.author}, "
+                f"merged by {merged_pr.merged_by}: {merged_pr.title}"
             )
             lines.append(f"  {merged_pr.url}")
         lines.append("")

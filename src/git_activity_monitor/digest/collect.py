@@ -65,10 +65,9 @@ def collect_digest(
                         number=raw["number"],
                         title=raw["title"],
                         author=(raw.get("author") or {}).get("login", "unknown"),
+                        merged_by=(raw.get("mergedBy") or {}).get("login", "unknown"),
                         url=raw["url"],
-                        merged_at=dt.datetime.fromisoformat(
-                            raw["mergedAt"].replace("Z", "+00:00")
-                        ),
+                        merged_at=dt.datetime.fromisoformat(raw["mergedAt"].replace("Z", "+00:00")),
                     )
                 )
         except Exception:  # pylint: disable=broad-exception-caught

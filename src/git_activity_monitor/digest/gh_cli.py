@@ -93,7 +93,7 @@ def list_merged_prs_since(repo: str, since: dt.datetime) -> list[dict[str, Any]]
                 "--limit",
                 "200",
                 "--json",
-                "number,title,author,url,mergedAt",
+                "number,title,author,mergedBy,url,mergedAt",
             ]
         )
     )

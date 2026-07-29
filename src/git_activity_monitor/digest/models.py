@@ -21,6 +21,7 @@ class MergedPR:
     number: int
     title: str
     author: str
+    merged_by: str
     url: str
     merged_at: dt.datetime
 

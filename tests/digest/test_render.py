@@ -25,19 +25,24 @@ def test_build_html_includes_merged_section() -> None:
     data = _empty_data()
     data.merged_prs = [
         MergedPR(
-            repo="jasmeralia/foo",
+            repo="jasmeralia/directus-jasmeralia.com",
             number=5,
             title="Fix thing",
-            author="alice",
+            author="jasmeralia",
+            merged_by="bob",
             url="https://gh/pr/5",
             merged_at=NOW - dt.timedelta(hours=1),
         )
     ]
     html = build_html(data)
     assert "Merged in the last 24h (1)" in html
-    assert "jasmeralia/foo" in html
+    assert "jasmeralia/directus-jasmeralia.com" in html
+    assert 'href="https://github.com/jasmeralia/directus-jasmeralia.com"' in html
     assert "Fix thing" in html
     assert "https://gh/pr/5" in html
+    assert "created by jasmeralia" in html
+    assert '<span class="identity-mismatch">bob</span>' in html
+    assert '<span class="identity-mismatch">jasmeralia</span>' not in html
 
 
 def test_build_html_groups_open_prs_by_repo() -> None:
@@ -63,9 +68,12 @@ def test_build_html_groups_open_prs_by_repo() -> None:
         ),
     ]
     html = build_html(data)
-    assert "jasmeralia/foo (2)" in html
+    assert "jasmeralia/foo" in html
+    assert "(2)" in html
     assert "#1 A" in html
     assert "#2 B" in html
+    assert 'href="https://github.com/jasmeralia/foo"' in html
+    assert html.count('class="identity-mismatch"') == 2
 
 
 def test_build_html_sorts_alerts_by_severity_and_shows_disabled_note() -> None:
@@ -99,6 +107,8 @@ def test_build_html_sorts_alerts_by_severity_and_shows_disabled_note() -> None:
     assert html.index("pkg-b") < html.index("pkg-a")  # critical sorts before moderate
     assert "Dependabot alerts not enabled" in html
     assert "jasmeralia/no-graph" in html
+    assert 'href="https://github.com/jasmeralia/foo"' in html
+    assert 'href="https://github.com/jasmeralia/no-graph"' in html
 
 
 def test_build_text_includes_all_sections() -> None:
@@ -109,6 +119,7 @@ def test_build_text_includes_all_sections() -> None:
             number=5,
             title="Fix thing",
             author="alice",
+            merged_by="bob",
             url="https://gh/pr/5",
             merged_at=NOW - dt.timedelta(hours=1),
         )
@@ -128,6 +139,7 @@ def test_build_text_includes_all_sections() -> None:
 
     text = build_text(data)
     assert "=== Merged in the last 24h ===" in text
+    assert "created by alice, merged by bob" in text
     assert "=== Open Pull Requests ===" in text
     assert "Dependabot alerts not enabled" in text
     assert "jasmeralia/no-graph" in text
