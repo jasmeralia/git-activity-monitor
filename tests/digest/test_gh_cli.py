@@ -50,6 +50,8 @@ def test_list_merged_prs_since_builds_search_query(mock_run: MagicMock) -> None:
     args = mock_run.call_args[0][0]
     search_idx = args.index("--search")
     assert args[search_idx + 1] == "is:merged merged:>=2026-07-27T15:00:00Z"
+    json_idx = args.index("--json")
+    assert "mergedBy" in args[json_idx + 1].split(",")
 
 
 @patch("git_activity_monitor.digest.gh_cli.subprocess.run")

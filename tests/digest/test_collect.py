@@ -25,6 +25,7 @@ def _merged_pr(number: int, merged_at: str) -> dict:  # type: ignore[type-arg]
         "number": number,
         "title": f"Merged PR {number}",
         "author": {"login": "bob"},
+        "mergedBy": {"login": "carol"},
         "url": f"https://gh/pr/{number}",
         "mergedAt": merged_at,
     }
@@ -54,10 +55,8 @@ def test_collect_digest_aggregates_across_repos(
 ) -> None:
     mock_list_repos.return_value = ["jasmeralia/a", "jasmeralia/b"]
     mock_open_prs.side_effect = lambda repo: [_open_pr(1)] if repo == "jasmeralia/a" else []
-    mock_merged_prs.side_effect = (
-        lambda repo, since: [_merged_pr(2, "2026-07-28T10:00:00Z")]
-        if repo == "jasmeralia/b"
-        else []
+    mock_merged_prs.side_effect = lambda repo, since: (
+        [_merged_pr(2, "2026-07-28T10:00:00Z")] if repo == "jasmeralia/b" else []
     )
     mock_alerts.side_effect = lambda repo: [_alert(3, "critical")] if repo == "jasmeralia/a" else []
 
@@ -69,6 +68,8 @@ def test_collect_digest_aggregates_across_repos(
     assert data.open_prs[0].assignees == "unassigned"
     assert data.merged_pr_count == 1
     assert data.merged_prs[0].repo == "jasmeralia/b"
+    assert data.merged_prs[0].author == "bob"
+    assert data.merged_prs[0].merged_by == "carol"
     assert data.alert_count == 1
     assert data.alerts[0].severity == "critical"
     assert data.alerts[0].advisory_id == "GHSA-3"
@@ -145,8 +146,8 @@ def test_collect_digest_one_repo_failure_does_not_abort_others(
     mock_list_repos, mock_open_prs, mock_merged_prs, mock_alerts
 ) -> None:
     mock_list_repos.return_value = ["jasmeralia/broken", "jasmeralia/ok"]
-    mock_open_prs.side_effect = (
-        lambda repo: (_ for _ in ()).throw(RuntimeError("boom"))
+    mock_open_prs.side_effect = lambda repo: (
+        (_ for _ in ()).throw(RuntimeError("boom"))
         if repo == "jasmeralia/broken"
         else [_open_pr(9)]
     )

@@ -29,6 +29,7 @@ def test_build_html_includes_merged_section() -> None:
             number=5,
             title="Fix thing",
             author="alice",
+            merged_by="bob",
             url="https://gh/pr/5",
             merged_at=NOW - dt.timedelta(hours=1),
         )
@@ -38,6 +39,7 @@ def test_build_html_includes_merged_section() -> None:
     assert "jasmeralia/foo" in html
     assert "Fix thing" in html
     assert "https://gh/pr/5" in html
+    assert "created by alice · merged by bob" in html
 
 
 def test_build_html_groups_open_prs_by_repo() -> None:
@@ -109,6 +111,7 @@ def test_build_text_includes_all_sections() -> None:
             number=5,
             title="Fix thing",
             author="alice",
+            merged_by="bob",
             url="https://gh/pr/5",
             merged_at=NOW - dt.timedelta(hours=1),
         )
@@ -128,6 +131,7 @@ def test_build_text_includes_all_sections() -> None:
 
     text = build_text(data)
     assert "=== Merged in the last 24h ===" in text
+    assert "created by alice, merged by bob" in text
     assert "=== Open Pull Requests ===" in text
     assert "Dependabot alerts not enabled" in text
     assert "jasmeralia/no-graph" in text
