@@ -39,20 +39,11 @@ def build_text(data: DigestData) -> str:
         f"{data.generated_at.strftime('%Y-%m-%d %H:%M UTC')} "
         f"· {data.repos_checked} repo(s) checked",
         "",
+        f"{data.open_pr_count} open PR(s) · "
         f"{data.merged_pr_count} merged in the last {data.merged_window_hours}h "
-        f"· {data.open_pr_count} open PR(s) · {data.alert_count} open alert(s)",
+        f"· {data.alert_count} open alert(s)",
         "",
     ]
-
-    if data.merged_prs:
-        lines.append(f"=== Merged in the last {data.merged_window_hours}h ===")
-        for merged_pr in data.merged_prs_sorted():
-            lines.append(
-                f"{merged_pr.repo} #{merged_pr.number} created by {merged_pr.author}, "
-                f"merged by {merged_pr.merged_by}: {merged_pr.title}"
-            )
-            lines.append(f"  {merged_pr.url}")
-        lines.append("")
 
     if data.open_prs:
         lines.append("=== Open Pull Requests ===")
@@ -64,6 +55,16 @@ def build_text(data: DigestData) -> str:
                     f"opened {open_pr.created_at}: {open_pr.title}"
                 )
                 lines.append(f"    {open_pr.url}")
+        lines.append("")
+
+    if data.merged_prs:
+        lines.append(f"=== Merged in the last {data.merged_window_hours}h ===")
+        for merged_pr in data.merged_prs_sorted():
+            lines.append(
+                f"{merged_pr.repo} #{merged_pr.number} created by {merged_pr.author}, "
+                f"merged by {merged_pr.merged_by}: {merged_pr.title}"
+            )
+            lines.append(f"  {merged_pr.url}")
         lines.append("")
 
     if data.alerts:
