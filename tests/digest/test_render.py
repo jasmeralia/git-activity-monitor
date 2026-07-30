@@ -137,9 +137,14 @@ def test_build_text_includes_all_sections() -> None:
     ]
     data.alerts_disabled_repos = ["jasmeralia/no-graph"]
 
+    html = build_html(data)
+    assert html.index('<div class="stat stat-open">') < html.index('<div class="stat stat-merged">')
+    assert html.index("Open Pull Requests") < html.index("Merged in the last 24h")
+
     text = build_text(data)
     assert "=== Merged in the last 24h ===" in text
     assert "created by alice, merged by bob" in text
     assert "=== Open Pull Requests ===" in text
+    assert text.index("=== Open Pull Requests ===") < text.index("=== Merged in the last 24h ===")
     assert "Dependabot alerts not enabled" in text
     assert "jasmeralia/no-graph" in text
