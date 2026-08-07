@@ -11,6 +11,17 @@ updates:
       - '*'
   reviewers:
   - jasmeralia
+- package-ecosystem: docker
+  directory: /
+  schedule:
+    interval: weekly
+    day: monday
+  groups:
+    docker-deps:
+      patterns:
+      - '*'
+  reviewers:
+  - jasmeralia
 - package-ecosystem: github-actions
   directory: /
   schedule:
