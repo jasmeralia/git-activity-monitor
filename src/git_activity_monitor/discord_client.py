@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 _NO_MENTIONS: dict[str, Any] = {"parse": []}
 _MAX_RATE_LIMIT_RETRIES = 3
+_RATE_LIMIT_BACKOFF_CAP = 60.0
 
 
 def _is_retryable_discord(exc: BaseException) -> bool:
@@ -96,12 +97,15 @@ class DiscordClient:
                 break
             if attempt < _MAX_RATE_LIMIT_RETRIES:
                 retry_after = float(resp.headers.get("X-RateLimit-Reset-After", "1.0"))
+                # Discord's suggested wait sometimes isn't enough under sustained
+                # rate limiting; back off exponentially on top of it.
+                sleep_for = min(retry_after * (2**attempt), _RATE_LIMIT_BACKOFF_CAP)
                 logger.warning(
                     "Discord rate limited (attempt %d/%d); sleeping %.1fs",
                     attempt + 1,
                     _MAX_RATE_LIMIT_RETRIES,
-                    retry_after,
+                    sleep_for,
                 )
-                time.sleep(retry_after)
+                time.sleep(sleep_for)
         resp.raise_for_status()
         return resp
