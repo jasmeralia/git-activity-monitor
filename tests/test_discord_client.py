@@ -105,3 +105,41 @@ def test_429_inline_retry(dc: DiscordClient, monkeypatch: pytest.MonkeyPatch) ->
     )
     msg = dc.send_message("rate limited")
     assert msg["id"] == "7"
+
+
+@respx.mock
+def test_429_retry_backs_off_exponentially(
+    dc: DiscordClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "git_activity_monitor.discord_client.time.sleep", lambda s: sleeps.append(s)
+    )
+    respx.post(_WEBHOOK).mock(
+        side_effect=[
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "0.5"}),
+            httpx.Response(200, json={"id": "8"}),
+        ]
+    )
+    msg = dc.send_message("rate limited")
+    assert msg["id"] == "8"
+    assert sleeps == [0.5, 1.0]
+
+
+@respx.mock
+def test_429_retry_backoff_capped(dc: DiscordClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "git_activity_monitor.discord_client.time.sleep", lambda s: sleeps.append(s)
+    )
+    respx.post(_WEBHOOK).mock(
+        side_effect=[
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "30"}),
+            httpx.Response(429, headers={"X-RateLimit-Reset-After": "30"}),
+            httpx.Response(200, json={"id": "9"}),
+        ]
+    )
+    msg = dc.send_message("rate limited")
+    assert msg["id"] == "9"
+    assert sleeps == [30.0, 60.0]
