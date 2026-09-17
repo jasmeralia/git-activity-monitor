@@ -24,7 +24,9 @@ def _is_retryable_discord(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         # 429 is handled inline (variable sleep); retry 5xx only
         return exc.response.status_code in {500, 502, 503, 504}
-    return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
+    # RemoteProtocolError ("server disconnected") is a transient transport
+    # failure but is not a subclass of NetworkError or TimeoutException.
+    return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError))
 
 
 class DiscordClient:

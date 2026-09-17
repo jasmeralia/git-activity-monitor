@@ -65,6 +65,17 @@ def test_retries_on_503(dc: DiscordClient) -> None:
     assert msg["id"] == "5"
 
 
+@respx.mock
+def test_retries_on_remote_protocol_error(dc: DiscordClient) -> None:
+    route = respx.post(_WEBHOOK)
+    route.side_effect = [
+        httpx.RemoteProtocolError("server disconnected"),
+        httpx.Response(200, json={"id": "6"}),
+    ]
+    msg = dc.send_message("retry test")
+    assert msg["id"] == "6"
+
+
 def test_webhook_url_parsing() -> None:
     dc = DiscordClient("https://discord.com/api/webhooks/99999/my-secret-token")
     assert dc._webhook_id == "99999"
